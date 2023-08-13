@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 
 /**
  * Allocates memory for a 2D grid on which Life will evolve.
@@ -22,9 +23,23 @@ static uint8_t *GridCreate(const int n_rows, const int n_cols) {
 }
 
 /**
+ * Randomly initialise each cell in the grid as either alive (1) or dead (0).
+ * If not manually seeded, std::rand() behaves as if seeded with std::srand(1).
+ *
+ * @param grid Pointer to the memory allocated for the grid
+ * @param n_rows Number of rows in the grid
+ * @param n_cols Number of columns in the grid
+*/
+static void GridRandomInit(uint8_t *grid, const int n_rows, const int n_cols) {
+    for (int i = 0; i < n_rows * n_cols; i++) {
+        grid[i] = static_cast<uint8_t>(std::rand() & 0x01);
+    }
+}
+
+/**
  * Returns the sum of the 9 cells surrounding and including (row, col).
  *
- * @param grid Pointer to memory allocated for the grid
+ * @param grid Pointer to the memory allocated for the grid
  * @param row Row number of centre cell
  * @param col Column number of centre cell
  * @param n_cols Number of columns in the grid
@@ -49,7 +64,7 @@ static int GridLocalSum(uint8_t *grid, const int row, const int col,
 /**
  * Get the binary state of the cell (i, j).
  *
- * @param grid Pointer to memory allocated for the grid
+ * @param grid Pointer to the memory allocated for the grid
  * @param row Row number of the cell
  * @param col Column number of the cell
  * @param n_cols Number of columns in the grid
@@ -64,7 +79,7 @@ static inline char GridGetState(uint8_t *grid, const int row, const int col,
 /**
  * Set the binary state of the cell (i, j).
  *
- * @param grid Pointer to memory allocated for the grid
+ * @param grid Pointer to the memory allocated for the grid
  * @param row Row number of the cell
  * @param col Column number of the cell
  * @param n_cols Number of columns in the grid
@@ -78,7 +93,7 @@ static inline void GridSetState(uint8_t *grid, const int row, const int col,
  * Updates the grid one timestep forward based on the standard rules of Life.
  * Cells beyond the grid are considered to be dead.
  *
- * @param grid Pointer to memory allocated for the grid
+ * @param grid Pointer to the memory allocated for the grid
  * @param n_rows Number of rows in the grid
  * @param n_cols Number of columns in the grid
  *
@@ -130,7 +145,8 @@ int main(int argc, char *argv[]) {
     // Create the grid
     uint8_t *grid = GridCreate(kGridRows, kGridCols);
 
-    // TODO: initial configuration
+    // Initialise the cell states
+    GridRandomInit(grid, kGridRows, kGridCols);
 
     // Evolve the simulation the specified number of iterations or until all
     // cells are dead (meaning nothing will happen in all future iterations)
@@ -138,6 +154,15 @@ int main(int argc, char *argv[]) {
         if (GridEvolve(grid, kGridRows, kGridCols) == 1) {
             break;
         }
+    }
+
+    // Dump results to console
+    for (int i = 0; i < kGridRows; i++) {
+        std::cout << "|";
+        for (int j = 0; j < kGridCols; j++) {
+            std::cout << static_cast<int>(grid[i * kGridCols + j]) << "|";
+        }
+        std::cout << "\n";
     }
 
     // Clean up and exit

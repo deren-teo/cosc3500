@@ -3,7 +3,7 @@ CFLAGS=-Wall -Werror -pedantic
 all: main
 
 main: main.cpp
-	gcc $(CFLAGS) main.cpp -o main
+	g++ $(CFLAGS) main.cpp -o main
 
 clean:
 	rm -rf *.o
