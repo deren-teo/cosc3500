@@ -1,9 +1,9 @@
-CFLAGS=-Wall -Werror -pedantic -std=gnu99
+CFLAGS=-Wall -Werror -pedantic
 
 all: main
 
-main: main.c
-	gcc $(CFLAGS) main.c -o main
+main: main.cpp
+	gcc $(CFLAGS) main.cpp -o main
 
 clean:
 	rm -rf *.o
