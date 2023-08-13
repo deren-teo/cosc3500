@@ -37,7 +37,9 @@ static void GridRandomInit(uint8_t *grid, const int n_rows, const int n_cols) {
 }
 
 /**
- * Returns the sum of the 9 cells surrounding and including (row, col).
+ * Returns the sum of the 3x3 grid of cells aronud and including (row, col).
+ * If row or col is on the edge of the grid, the 3x3 grid wraps around to the
+ * other side of the grid, as if on a taurus.
  *
  * @param grid Pointer to the memory allocated for the grid
  * @param row Row number of centre cell
@@ -47,17 +49,23 @@ static void GridRandomInit(uint8_t *grid, const int n_rows, const int n_cols) {
  * @return Sum of the 3x3 grid of cells centred on (row, col).
 */
 static int GridLocalSum(uint8_t *grid, const int row, const int col,
-                        const int n_cols) {
+                        const int n_rows, const int n_cols) {
+    // Surrounding row and column indices with wraparound logic
+    int row0 = (row - 1 + n_rows) % n_rows;
+    int row2 = (row + 1) % n_rows;
+    int col0 = (col - 1 + n_cols) % n_cols;
+    int col2 = (col + 1) % n_cols;
+
     int sum = 0;
-    sum += static_cast<int>(grid[(row - 1) * n_cols + (col - 1)]);
-    sum += static_cast<int>(grid[(row - 1) * n_cols + (col)    ]);
-    sum += static_cast<int>(grid[(row - 1) * n_cols + (col + 1)]);
-    sum += static_cast<int>(grid[(row)     * n_cols + (col - 1)]);
-    sum += static_cast<int>(grid[(row)     * n_cols + (col)    ]);
-    sum += static_cast<int>(grid[(row)     * n_cols + (col + 1)]);
-    sum += static_cast<int>(grid[(row + 1) * n_cols + (col - 1)]);
-    sum += static_cast<int>(grid[(row + 1) * n_cols + (col)    ]);
-    sum += static_cast<int>(grid[(row + 1) * n_cols + (col + 1)]);
+    sum += (grid[row0 * n_cols + col0]);
+    sum += (grid[row0 * n_cols + col ]);
+    sum += (grid[row0 * n_cols + col2]);
+    sum += (grid[row  * n_cols + col0]);
+    sum += (grid[row  * n_cols + col ]);
+    sum += (grid[row  * n_cols + col2]);
+    sum += (grid[row2 * n_cols + col0]);
+    sum += (grid[row2 * n_cols + col ]);
+    sum += (grid[row2 * n_cols + col2]);
     return sum;
 }
 
@@ -91,7 +99,6 @@ static inline void GridSetState(uint8_t *grid, const int row, const int col,
 
 /**
  * Updates the grid one timestep forward based on the standard rules of Life.
- * Cells beyond the grid are considered to be dead.
  *
  * @param grid Pointer to the memory allocated for the grid
  * @param n_rows Number of rows in the grid
@@ -112,7 +119,7 @@ static int GridEvolve(uint8_t *grid, const int n_rows, const int n_cols) {
     for (unsigned short i = 0; i < n_rows; i++) {
         for (unsigned short j = 0; j < n_cols; j++) {
             // TODO: should probably use a 3x3 kernel
-            switch (GridLocalSum(grid, i, j, n_cols)) {
+            switch (GridLocalSum(grid, i, j, n_rows, n_cols)) {
                 case 3: {
                     GridSetState(grid, i, j, n_cols, 1);
                     any_alive = true;
