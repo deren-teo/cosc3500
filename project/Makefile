@@ -1,10 +1,12 @@
-CFLAGS=-Wall -Werror -pedantic
+CFLAGS = -Wall -Werror -pedantic
 
-all: main
+.PHONY = all game_of_life clean
 
-main: main.cpp
-	g++ $(CFLAGS) main.cpp -o main
+all: game_of_life
+
+game_of_life: Makefile game_of_life.cc parser.h parser.cc
+	g++ $(CFLAGS) game_of_life.cc parser.cc -o game_of_life
 
 clean:
 	rm -rf *.o
-	rm -rf main
+	rm -rf game_of_life

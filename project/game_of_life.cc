@@ -1,14 +1,15 @@
 /*******************************************************************************
- * @file    main.cpp
+ * @file    main.cc
  * @author  Deren Teo
  * @brief   An optimised implementation of Conway's Game of Life (abbr. Life).
- *      NOTE: This source file kinda conforms with the Google C++ Style Guide.
  ******************************************************************************/
 
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+
+#include "parser.h"
 
 /**
  * Allocates memory for a 2D grid on which Life will evolve.
@@ -144,30 +145,48 @@ static int GridEvolve(uint8_t *grid, const int n_rows, const int n_cols) {
 }
 
 int main(int argc, char *argv[]) {
-    // TODO: un-hardcode these
-    const int kGridRows = 10;
-    const int kGridCols = 10;
-    const int kSimIterations = 100;
+    // Default simulation configuration
+    int n_rows = 10;
+    int n_cols = 10;
+    int n_iter = 100;
+    uint8_t *grid;
 
-    // Create the grid
-    uint8_t *grid = GridCreate(kGridRows, kGridCols);
-
-    // Initialise the cell states
-    GridRandomInit(grid, kGridRows, kGridCols);
+    // TODO: this command line argument parsing is not very robust
+    switch (argc) {
+        case 1: {
+            grid = GridCreate(n_rows, n_cols);
+            GridRandomInit(grid, n_rows, n_cols);
+            break;
+        }
+        case 2: {
+            n_iter = std::atoi(argv[1]);
+            grid = GridCreate(n_rows, n_cols);
+            GridRandomInit(grid, n_rows, n_cols);
+            break;
+        }
+        case 3: {
+            n_iter = std::atoi(argv[1]);
+            grid = ParseRLEFile(argv[2]);
+            break;
+        }
+        default: {
+            return 1;
+        }
+    }
 
     // Evolve the simulation the specified number of iterations or until all
     // cells are dead (meaning nothing will happen in all future iterations)
-    for (int i = 0; i < kSimIterations; i++) {
-        if (GridEvolve(grid, kGridRows, kGridCols) == 1) {
+    for (int i = 0; i < n_iter; i++) {
+        if (GridEvolve(grid, n_rows, n_cols) == 1) {
             break;
         }
     }
 
     // Dump results to console
-    for (int i = 0; i < kGridRows; i++) {
+    for (int i = 0; i < n_rows; i++) {
         std::cout << "|";
-        for (int j = 0; j < kGridCols; j++) {
-            std::cout << static_cast<int>(grid[i * kGridCols + j]) << "|";
+        for (int j = 0; j < n_cols; j++) {
+            std::cout << static_cast<int>(grid[i * n_cols + j]) << "|";
         }
         std::cout << "\n";
     }
