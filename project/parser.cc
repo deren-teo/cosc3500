@@ -49,13 +49,12 @@ uint8_t *ParseRLEFile(const char *filename, int *n_rows, int *n_cols) {
     // but newline, carriage return and null characters add to this
     const int kBufferSize = 80;
     char buffer[kBufferSize] = {0};
-
-    uint8_t *grid;
     int row_idx = 0;
     int col_idx = 0;
+    uint8_t *grid;
 
-    fgets(buffer, kBufferSize, fptr);
     while (!std::feof(fptr)) {
+        fgets(buffer, kBufferSize, fptr);
         switch (buffer[0]) {
             // Line starting with '#' is a comment, which we ignore
             case '#': {
@@ -64,7 +63,9 @@ uint8_t *ParseRLEFile(const char *filename, int *n_rows, int *n_cols) {
             // Line starting with 'x' gives grid dimensions
             case 'x': {
                 ParseRLEGridSize(buffer, kBufferSize, n_rows, n_cols);
-                grid = static_cast<uint8_t *>(std::malloc((*n_rows) * (*n_cols)));
+                size_t count = (*n_rows) * (*n_cols);
+                grid = static_cast<uint8_t *>(std::malloc(count));
+                std::memset(grid, 0, count);
                 break;
             }
             // Line starting with anything else is parsed as a pattern line
@@ -74,7 +75,6 @@ uint8_t *ParseRLEFile(const char *filename, int *n_rows, int *n_cols) {
                 break;
             }
         }
-        fgets(buffer, kBufferSize, fptr);
     }
     std::fclose(fptr);
     return grid;

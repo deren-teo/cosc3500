@@ -80,7 +80,6 @@ static int GridLocalSum(uint8_t *grid, const int row, const int col,
             sum += grid[idx20 + 2];
         }
     }
-    std::cout << sum;
     return sum;
 }
 
@@ -195,13 +194,13 @@ int main(int argc, char *argv[]) {
 
     // Dump results to console
     for (int i = 0; i < n_rows; i++) {
-        std::cout << "|";
+        std::cout << '|';
         for (int j = 0; j < n_cols; j++) {
             uint8_t cell_state = grid[i * n_cols + j];
             if (cell_state) {
-                std::cout << '#' << '|';
+                std::cout << "#|";
             } else {
-                std::cout << ' ' << '|';
+                std::cout << " |";
             }
         }
         std::cout << '\n';
