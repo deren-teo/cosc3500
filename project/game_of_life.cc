@@ -111,8 +111,8 @@ static void CellSetState(uint8_t *grid, const int row, const int col,
 static int GridEvolve(uint8_t *grid, const int n_rows, const int n_cols) {
     // Allocate copy of grid to hold intermediate evolved cell states
     uint8_t *evolved_grid = static_cast<uint8_t *>(
-        std::malloc(n_rows * n_cols * sizeof(uint8_t)));
-    std::memcpy(evolved_grid, grid, n_rows * n_cols * sizeof(uint8_t));
+        std::malloc(n_rows * n_cols));
+    std::memcpy(evolved_grid, grid, n_rows * n_cols);
 
     // Early stopping condition: no cells changed (possibly all dead)
     int stop_early = 1;
@@ -129,7 +129,7 @@ static int GridEvolve(uint8_t *grid, const int n_rows, const int n_cols) {
                 }
                 case 3: {
                     // Cell (i, j) now alive, regardless of previous state
-                    CellSetState(grid, i, j, n_cols, 1, &state_changed);
+                    CellSetState(evolved_grid, i, j, n_cols, 1, &state_changed);
                     stop_early &= !state_changed;
                     break;
                 }
@@ -139,7 +139,7 @@ static int GridEvolve(uint8_t *grid, const int n_rows, const int n_cols) {
                 }
                 default: {
                     // Cell (i, j) now dead, regardless of previous state
-                    CellSetState(grid, i, j, n_cols, 0, &state_changed);
+                    CellSetState(evolved_grid, i, j, n_cols, 0, &state_changed);
                     stop_early &= !state_changed;
                     break;
                 }
@@ -149,7 +149,7 @@ static int GridEvolve(uint8_t *grid, const int n_rows, const int n_cols) {
     // Copy evolved cell states back into grid and free temporary grid copy
     // TODO: highly memory intensive; is there any way to point `grid` at
     //  `evolved_grid` and free the old grid?
-    std::memcpy(grid, evolved_grid, n_rows * n_cols * sizeof(uint8_t));
+    std::memcpy(grid, evolved_grid, n_rows * n_cols);
     free(evolved_grid);
     return stop_early;
 }
@@ -187,6 +187,7 @@ int main(int argc, char *argv[]) {
     // Evolve the simulation the specified number of iterations or until all
     // cells are dead (meaning nothing will happen in all future iterations)
     for (int i = 0; i < n_iter; i++) {
+            std::cout << "evolve\r\n";
         if (GridEvolve(grid, n_rows, n_cols) == 1) {
             break;
         }
