@@ -42,38 +42,39 @@ static void GridAddPattern(uint8_t *grid, int n_cols, int row_idx, int col_idx,
 
 /** EXTERNAL FUNCTION DEFINITIONS *********************************************/
 
-uint8_t *ParseRLEFile(const char *filename) {
+uint8_t *ParseRLEFile(const char *filename, int *n_rows, int *n_cols) {
     std::FILE *fptr = std::fopen(filename, "r");
 
-    // LifeWiki RLE format description specifies lines must not exceed 70 chars
-    const int kBufferSize = 70;
+    // LifeWiki RLE format description specifies lines must not exceed 70 chars,
+    // but newline, carriage return and null characters add to this
+    const int kBufferSize = 80;
     char buffer[kBufferSize] = {0};
 
     uint8_t *grid;
-    int n_rows, n_cols;
     int row_idx = 0;
     int col_idx = 0;
 
-    fgets(buffer, kBufferSize, (std::FILE *)fptr);
-    while (buffer[0] != EOF) {
+    fgets(buffer, kBufferSize, fptr);
+    while (!std::feof(fptr)) {
         switch (buffer[0]) {
             // Line starting with '#' is a comment, which we ignore
             case '#': {
-                continue;
+                break;
             }
             // Line starting with 'x' gives grid dimensions
             case 'x': {
-                ParseRLEGridSize(buffer, kBufferSize, &n_rows, &n_cols);
-                grid = static_cast<uint8_t *>(std::malloc(n_rows * n_cols));
+                ParseRLEGridSize(buffer, kBufferSize, n_rows, n_cols);
+                grid = static_cast<uint8_t *>(std::malloc((*n_rows) * (*n_cols)));
                 break;
             }
             // Line starting with anything else is parsed as a pattern line
             default: {
-                ParseRLEPatternLine(buffer, kBufferSize, grid, n_cols,
+                ParseRLEPatternLine(buffer, kBufferSize, grid, *n_cols,
                     &row_idx, &col_idx);
                 break;
             }
         }
+        fgets(buffer, kBufferSize, fptr);
     }
     std::fclose(fptr);
     return grid;
@@ -86,16 +87,19 @@ static int ParseIntGreedy(const char *buffer, int buffer_size, int idx_start,
 
     // Greedily parse digits until the first non-digit
     *idx_end = idx_start + 1;
-    while (std::isdigit(buffer[*idx_end++]));
+    while (std::isdigit(buffer[*idx_end])) {
+        (*idx_end)++;
+    }
 
-    // Copy the digits as a substring
-    int num_digits = *idx_end - 1 - idx_start;
-    char *numstr = static_cast<char *>(std::malloc(num_digits));
-    std::strncpy(numstr, buffer + idx_start, num_digits);
+    // Copy the digits as a substring, with an extra byte for null terminator
+    int num_digits = *idx_end - idx_start;
+    char *numstr = static_cast<char *>(std::malloc(num_digits + 1));
+    std::memcpy(numstr, buffer + idx_start, num_digits);
+    numstr[num_digits] = '\0';
 
     // Parse the substring and return the result
     int res = std::atoi(numstr);
-    free(numstr);
+    std::free(numstr);
     return res;
 }
 
@@ -107,12 +111,12 @@ static void ParseRLEGridSize(const char *buffer, int buffer_size, int *n_rows,
 
     // Parse the "x" dimension by looking for the first string of numbers
     while (!std::isdigit(buffer[idx_start++]));
-    *n_cols = ParseIntGreedy(buffer, buffer_size, idx_start, &idx_end);
+    *n_cols = ParseIntGreedy(buffer, buffer_size, idx_start - 1, &idx_end);
 
     // Parse the "y" dimension by looking for the next string of numbers
     idx_start = idx_end + 1;
     while (!std::isdigit(buffer[idx_start++]));
-    *n_rows = ParseIntGreedy(buffer, buffer_size, idx_start, &idx_end);
+    *n_rows = ParseIntGreedy(buffer, buffer_size, idx_start - 1, &idx_end);
 }
 
 static void ParseRLEPatternLine(const char *buffer, int buffer_size,
@@ -138,11 +142,13 @@ static void ParseRLEPatternLine(const char *buffer, int buffer_size,
         }
         if (buffer[i] == '$') {
             *row_idx += run_count;
+            *col_idx = 0;
             run_count = 1;
+            continue;
         }
         if (std::isdigit(buffer[i])) {
             run_count = ParseIntGreedy(buffer, buffer_size, i, &idx_end);
-            i = idx_end;
+            i = idx_end - 1;
             continue;
         }
     }

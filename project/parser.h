@@ -10,7 +10,6 @@
 #define PARSER_H
 
 #include <cstdint>
-#include <cstdio>
 
 /**
  * Parse a run length encoded (RLE) pattern file and onto a Life grid.
@@ -18,9 +17,11 @@
  *      https://conwaylife.com/wiki/Run_Length_Encoded
  *
  * @param filename Name of the RLE file to parse
+ * @param n_rows Pointer to variable to store number of rows in allocated grid
+ * @param n_cols Pointer to variable to store number of cols in allocated grid
  *
  * @returns Pointer to the grid object initialised with the parsed pattern.
 */
-uint8_t *ParseRLEFile(const char *filename);
+uint8_t *ParseRLEFile(const char *filename, int *n_rows, int *n_cols);
 
 #endif  // PARSER_H

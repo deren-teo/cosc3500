@@ -166,7 +166,7 @@ int main(int argc, char *argv[]) {
         }
         case 3: {
             n_iter = std::atoi(argv[1]);
-            grid = ParseRLEFile(argv[2]);
+            grid = ParseRLEFile(argv[2], &n_rows, &n_cols);
             break;
         }
         default: {
@@ -186,9 +186,14 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < n_rows; i++) {
         std::cout << "|";
         for (int j = 0; j < n_cols; j++) {
-            std::cout << static_cast<int>(grid[i * n_cols + j]) << "|";
+            uint8_t cell_state = grid[i * n_cols + j];
+            if (cell_state) {
+                std::cout << '#' << '|';
+            } else {
+                std::cout << ' ' << '|';
+            }
         }
-        std::cout << "\n";
+        std::cout << '\n';
     }
 
     // Clean up and exit
