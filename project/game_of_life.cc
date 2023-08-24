@@ -11,16 +11,22 @@
 
 #include "parser.h"
 
+volatile int fp_argidx = 0; // argv idx of optional pattern file argument
+volatile int n_iter = 99;   // maximum number of iterations to simulate
+volatile int output = 0;    // whether to dump grid as binary to file
+volatile int verbose = 0;   // whether to print runtime configuration to console
+
 /**
  * Allocates memory for a 2D grid on which Life will evolve.
  *
- * @param n_rows Number of rows in the grid
- * @param n_cols Number of columns in the grid
+ * @param n_cells Number of cells in the grid; i.e. n_rows * n_cells
  *
  * @return Pointer to the memory allocated for the grid.
 */
-static uint8_t *GridCreate(const int n_rows, const int n_cols) {
-    return (uint8_t *)std::malloc(n_rows * n_cols * sizeof(uint8_t));
+static uint8_t *GridCreateEmpty(const int n_cells) {
+    uint8_t *grid = static_cast<uint8_t *>(std::malloc(n_cells));
+    std::memset(grid, 0, n_cells);
+    return grid;
 }
 
 /**
@@ -28,11 +34,10 @@ static uint8_t *GridCreate(const int n_rows, const int n_cols) {
  * If not manually seeded, std::rand() behaves as if seeded with std::srand(1).
  *
  * @param grid Pointer to the memory allocated for the grid
- * @param n_rows Number of rows in the grid
- * @param n_cols Number of columns in the grid
+ * @param n_cells Number of cells in the grid; i.e. n_rows * n_cells
 */
-static void GridRandomInit(uint8_t *grid, const int n_rows, const int n_cols) {
-    for (int i = 0; i < n_rows * n_cols; i++) {
+static void GridRandomInit(uint8_t *grid, const int n_cells) {
+    for (int i = 0; i < n_cells; i++) {
         grid[i] = static_cast<uint8_t>(std::rand() & 0x01);
     }
 }
@@ -166,44 +171,74 @@ static inline void GridSerialize(std::FILE *fptr, uint8_t *grid, const int n_cel
     std::fputc('\n', fptr);
 }
 
-int main(int argc, char *argv[]) {
-    // Default simulation configuration
-    int output = 0;
-    int n_rows = 10;
-    int n_cols = 10;
-    int n_iter = 100;
-    uint8_t *grid;
-
-    // TODO: this command line argument parsing is not very robust
-    switch (argc) {
-        case 1: {
-            grid = GridCreate(n_rows, n_cols);
-            GridRandomInit(grid, n_rows, n_cols);
-            break;
-        }
-        case 2: {
-            n_iter = std::atoi(argv[1]);
-            grid = GridCreate(n_rows, n_cols);
-            GridRandomInit(grid, n_rows, n_cols);
-            break;
-        }
-        case 3: {
-            n_iter = std::atoi(argv[1]);
-            grid = ParseRLEFile(argv[2], &n_rows, &n_cols);
-            break;
-        }
-        case 4: {
-            n_iter = std::atoi(argv[1]);
-            grid = ParseRLEFile(argv[2], &n_rows, &n_cols);
-            // TODO: this is dumb (actually parse cmd for "-o" or something)
+/**
+ * Parses command line arguments as various configurable runtime options
+ * by setting respective global variables.
+ *
+ * @return 0 if successful.
+*/
+static int ParseCmdline(int argc, char *argv[]) {
+    const char *help = \
+        "Usage: ./game_of_life [OPTION]\n\n"
+        "  -f, --file=FILEPATH  path to a pattern file in RLE format\n"
+        "  -i, --iters=NITER    number of iterations to simulate\n"
+        "  -o, --output         output the grid in binary every iteration\n"
+        "  -v, --verbose        output runtime configuration to console\n\n";
+    for (int i = 1; i < argc; i++) {
+        if (!std::strcmp(argv[i], "-f") || !std::strcmp(argv[i], "--filepath")) {
+            if (argc >= i + 1) {
+                fp_argidx = ++i;
+            } else {
+                std::cout << help;
+                return 1;
+            }
+        } else if (!std::strcmp(argv[i], "-i") || !std::strcmp(argv[i], "--iters")) {
+            if (argc >= i + 1) {
+                n_iter = std::atoi(argv[++i]);
+            } else {
+                std::cout << help;
+                return 1;
+            }
+        } else if (!std::strcmp(argv[i], "-o") || !std::strcmp(argv[i], "--output")) {
             output = 1;
-            break;
-        }
-        default: {
+        } else if (!std::strcmp(argv[i], "-v") || !std::strcmp(argv[i], "--verbose")) {
+            verbose = 1;
+        } else {
+            std::cout << help;
             return 1;
         }
     }
+    return 0;
+}
 
+int main(int argc, char *argv[]) {
+    // Parse command line arguments as various configurable runtime options
+    if (ParseCmdline(argc, argv)) {
+        return 1;
+    }
+    // Create and initialise the grid (latter either randomly or with a pattern)
+    uint8_t *grid;
+    int n_rows = 10; // default number of rows in grid
+    int n_cols = 10; // default number of columns in grid
+    int n_cells;     // i.e. n_rows * n_cols
+    if (!fp_argidx) {
+        n_cells = n_rows * n_cols;
+        grid = GridCreateEmpty(n_cells);
+        GridRandomInit(grid, n_cells);
+    } else {
+        grid = ParseRLEFile(argv[fp_argidx], &n_rows, &n_cols);
+        n_cells = n_rows * n_cols;
+    }
+    // If verbose flag specified on the command line, print runtime config
+    if (verbose) {
+        std::cout << "Simulating Life on a " << n_rows << "x" << n_cols << " grid ";
+        if (fp_argidx) {
+            std::cout << "with initial pattern from \"" << argv[fp_argidx] << "\" ";
+        } else {
+            std::cout << "with a randomised initial pattern ";
+        }
+        std::cout << "for " << n_iter << " iterations... ";
+    }
     // Evolve the simulation the specified number of iterations or until all
     // cells are dead (meaning nothing will happen in all future iterations)
     if (!output) {
@@ -212,9 +247,10 @@ int main(int argc, char *argv[]) {
                 break;
             }
         }
+    // If output flag specified on the command line, then every iteration the
+    // grid is written as raw binary to "game_of_life.out"
     } else {
         std::FILE *fptr = std::fopen("game_of_life.out", "wb");
-        const int n_cells = n_rows * n_cols;
         for (int i = 0; i < n_iter; i++) {
             GridSerialize(fptr, grid, n_cells);
             if (GridEvolve(grid, n_rows, n_cols) == 1) {
@@ -224,21 +260,9 @@ int main(int argc, char *argv[]) {
         GridSerialize(fptr, grid, n_cells);
         std::fclose(fptr);
     }
-
-    // // Dump results to console
-    // for (int i = 0; i < n_rows; i++) {
-    //     std::cout << '|';
-    //     for (int j = 0; j < n_cols; j++) {
-    //         uint8_t cell_state = grid[i * n_cols + j];
-    //         if (cell_state) {
-    //             std::cout << "#|";
-    //         } else {
-    //             std::cout << " |";
-    //         }
-    //     }
-    //     std::cout << '\n';
-    // }
-
+    if (verbose) {
+        std::cout << "(Done)\n";
+    }
     // Clean up and exit
     free(grid);
     return 0;
