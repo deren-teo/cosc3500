@@ -154,8 +154,21 @@ static int GridEvolve(uint8_t *grid, const int n_rows, const int n_cols) {
     return stop_early;
 }
 
+/**
+ * Serialize grid state and write to file, preferably as fast as possible.
+ *
+ * @param fptr Pointer to the file object to write to
+ * @param grid Pointer to the memory allocated for the grid
+ * @param n_cells Number of cells in the grid; i.e. n_rows * n_cols
+*/
+static inline void GridSerialize(std::FILE *fptr, uint8_t *grid, const int n_cells) {
+    std::fwrite(grid, 1, n_cells, fptr);
+    std::fputc('\n', fptr);
+}
+
 int main(int argc, char *argv[]) {
     // Default simulation configuration
+    int output = 0;
     int n_rows = 10;
     int n_cols = 10;
     int n_iter = 100;
@@ -179,6 +192,13 @@ int main(int argc, char *argv[]) {
             grid = ParseRLEFile(argv[2], &n_rows, &n_cols);
             break;
         }
+        case 4: {
+            n_iter = std::atoi(argv[1]);
+            grid = ParseRLEFile(argv[2], &n_rows, &n_cols);
+            // TODO: this is dumb (actually parse cmd for "-o" or something)
+            output = 1;
+            break;
+        }
         default: {
             return 1;
         }
@@ -186,26 +206,38 @@ int main(int argc, char *argv[]) {
 
     // Evolve the simulation the specified number of iterations or until all
     // cells are dead (meaning nothing will happen in all future iterations)
-    for (int i = 0; i < n_iter; i++) {
-            std::cout << "evolve\r\n";
-        if (GridEvolve(grid, n_rows, n_cols) == 1) {
-            break;
-        }
-    }
-
-    // Dump results to console
-    for (int i = 0; i < n_rows; i++) {
-        std::cout << '|';
-        for (int j = 0; j < n_cols; j++) {
-            uint8_t cell_state = grid[i * n_cols + j];
-            if (cell_state) {
-                std::cout << "#|";
-            } else {
-                std::cout << " |";
+    if (!output) {
+        for (int i = 0; i < n_iter; i++) {
+            if (GridEvolve(grid, n_rows, n_cols) == 1) {
+                break;
             }
         }
-        std::cout << '\n';
+    } else {
+        std::FILE *fptr = std::fopen("game_of_life.out", "wb");
+        const int n_cells = n_rows * n_cols;
+        for (int i = 0; i < n_iter; i++) {
+            GridSerialize(fptr, grid, n_cells);
+            if (GridEvolve(grid, n_rows, n_cols) == 1) {
+                break;
+            }
+        }
+        GridSerialize(fptr, grid, n_cells);
+        std::fclose(fptr);
     }
+
+    // // Dump results to console
+    // for (int i = 0; i < n_rows; i++) {
+    //     std::cout << '|';
+    //     for (int j = 0; j < n_cols; j++) {
+    //         uint8_t cell_state = grid[i * n_cols + j];
+    //         if (cell_state) {
+    //             std::cout << "#|";
+    //         } else {
+    //             std::cout << " |";
+    //         }
+    //     }
+    //     std::cout << '\n';
+    // }
 
     // Clean up and exit
     free(grid);
