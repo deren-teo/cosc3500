@@ -22,6 +22,6 @@
  *
  * @returns Pointer to the grid object initialised with the parsed pattern.
 */
-uint8_t *ParseRLEFile(const char *filename, int *n_rows, int *n_cols);
+char *ParseRLEFile(const char *filename, int *n_rows, int *n_cols);
 
 #endif  // PARSER_H
