@@ -17,6 +17,9 @@ volatile int n_iter = 99;   // maximum number of iterations to simulate
 volatile int output = 0;    // whether to dump grid as binary to file
 volatile int verbose = 0;   // whether to print runtime configuration to console
 
+int n_rows = 0;             // placeholder "empty" number of rows in the grid
+int n_cols = 0;             // placeholder "empty" number of columns in the grid
+
 /**
  * Allocates memory for a 2D grid on which Life will evolve. Each cell is
  * allocated a single bit, since a cell has binary state.
@@ -206,12 +209,13 @@ static inline void GridSerialize(std::FILE *fptr, char *grid, const int n_bytes)
 static int ParseCmdline(int argc, char *argv[]) {
     const char *help = \
         "Usage: ./game_of_life [OPTION]\n\n"
-        "  -f, --file=FILEPATH  path to a pattern file in RLE format\n"
-        "  -i, --iters=NITER    number of iterations to simulate\n"
+        "  -f, --file FILEPATH  path to a pattern file in RLE format\n"
+        "  -i, --iters NITER    number of iterations to simulate\n"
         "  -o, --output         output the grid in binary every iteration\n"
+        "  -s, --size NxM       number of rows x columns in the grid \n"
         "  -v, --verbose        output runtime configuration to console\n\n";
     for (int i = 1; i < argc; i++) {
-        if (!std::strcmp(argv[i], "-f") || !std::strcmp(argv[i], "--filepath")) {
+        if (!std::strcmp(argv[i], "-f") || !std::strcmp(argv[i], "--file")) {
             if (argc >= i + 1) {
                 fp_argidx = ++i;
             } else {
@@ -227,6 +231,22 @@ static int ParseCmdline(int argc, char *argv[]) {
             }
         } else if (!std::strcmp(argv[i], "-o") || !std::strcmp(argv[i], "--output")) {
             output = 1;
+        } else if (!std::strcmp(argv[i], "-s") || !std::strcmp(argv[i], "--size")) {
+            if (argc >= i + 1) {
+                size_t buffer_size = std::strlen(argv[++i]);
+                int start_idx = 0;
+                int end_idx;
+                n_rows = ParseIntGreedy(argv[i], buffer_size, start_idx, &end_idx);
+                if (argv[i][end_idx] != 'x' || !std::isdigit(argv[i][end_idx + 1])) {
+                    std::cout << help;
+                    return 1;
+                }
+                start_idx = end_idx + 1;
+                n_cols = ParseIntGreedy(argv[i], buffer_size, start_idx, &end_idx);
+            } else {
+                std::cout << help;
+                return 1;
+            }
         } else if (!std::strcmp(argv[i], "-v") || !std::strcmp(argv[i], "--verbose")) {
             verbose = 1;
         } else {
@@ -244,10 +264,10 @@ int main(int argc, char *argv[]) {
     }
     // Create and initialise the grid (latter either randomly or with a pattern)
     char *grid;
-    int n_rows = 10; // default number of rows in grid
-    int n_cols = 10; // default number of columns in grid
-    int n_bytes;     // i.e. n_rows * n_cols
+    int n_bytes;
     if (!fp_argidx) {
+        n_rows = 100;   // default number of rows
+        n_cols = 100;   // default number of columns
         n_bytes = std::ceil(n_rows * n_cols / 8.0);
         grid = GridCreateEmpty(n_bytes);
         GridRandomInit(grid, n_bytes);
