@@ -1,4 +1,4 @@
-CFLAGS = -Wall -pedantic
+CFLAGS = -Wall -pedantic -o3
 
 .PHONY = all game_of_life clean
 
