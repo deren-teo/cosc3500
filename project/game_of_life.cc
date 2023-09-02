@@ -197,7 +197,6 @@ static char *GridEvolve(char *grid, const int n_rows, const int n_cols,
 */
 static inline void GridSerialize(std::FILE *fptr, char *grid, const int n_bytes) {
     std::fwrite(grid, 1, n_bytes, fptr);
-    std::fputc('\n', fptr);
 }
 
 /**
