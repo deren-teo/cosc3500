@@ -4,9 +4,9 @@ import sys
 from tqdm import tqdm
 
 filename = None # name of binary output file to parse
+outfile = None  # name of output text file to write parsed output to
 n_rows = None   # number of rows represented in binary output file to parse
 n_cols = None   # number of columns represented in binary output file to parse
-outfile = None  # name of output text file to write parsed output to
 
 def stream_bits(bytestr):
     bitstream = list()
@@ -32,7 +32,7 @@ def print_pattern(f, bytestr, n_rows, n_cols):
             print(outstr)
 
 def parse_cmdline(argv):
-    global filename, n_rows, n_cols
+    global filename, outfile, n_rows, n_cols
     argc = len(argv)
     help = \
         f"Usage: {argv[0]} FILEPATH SIZE\n\n" + \
@@ -48,6 +48,13 @@ def parse_cmdline(argv):
                 print(help)
                 return 1
             continue
+        if argv[i] in ("-o", "--output"):
+            if argc > i + 1:
+                outfile = argv[i + 1]
+                i += 2
+            else:
+                print(help)
+                return 1
         if argv[i] in ("-s", "--size"):
             if argc > i + 1 and "x" in argv[i + 1]:
                 n_rows, n_cols = list(map(int, argv[i + 1].split("x")))
