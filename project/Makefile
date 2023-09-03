@@ -1,4 +1,4 @@
-CFLAGS = -Wall -pedantic -o3
+CFLAGS = -std=c++11 -Wall -pedantic -O3
 
 .PHONY = all game_of_life clean
 
@@ -9,6 +9,9 @@ game_of_life: Makefile game_of_life.cc parser.h parser.cc
 
 debug: Makefile game_of_life.cc parser.h parser.cc
 	g++ $(CFLAGS) -g game_of_life.cc parser.cc -o game_of_life
+
+prof: Makefile game_of_life.cc parser.h parser.cc
+	g++ $(CFLAGS) -pg game_of_life.cc parser.cc -o game_of_life
 
 clean:
 	rm -rf *.o
