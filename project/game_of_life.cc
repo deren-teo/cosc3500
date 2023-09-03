@@ -153,7 +153,7 @@ static char *GridEvolve(char *grid, const int n_rows, const int n_cols,
     // Early stopping condition: no cells changed (possibly all dead)
     *stop_early = 1;
     // Update cell states in grid copy
-    int state_changed;
+    int state_changed = 0;
     for (unsigned short i = 0; i < n_rows; i++) {
         for (unsigned short j = 0; j < n_cols; j++) {
             switch (GridLocalSum(grid, i, j, n_rows, n_cols)) {
@@ -264,9 +264,13 @@ int main(int argc, char *argv[]) {
     // Create and initialise the grid (latter either randomly or with a pattern)
     char *grid;
     int n_bytes;
-    if (!fp_argidx) {
+    if (!n_rows) {
         n_rows = 100;   // default number of rows
+    }
+    if (!n_cols) {
         n_cols = 100;   // default number of columns
+    }
+    if (!fp_argidx) {
         n_bytes = std::ceil(n_rows * n_cols / 8.0);
         grid = GridCreateEmpty(n_bytes);
         GridRandomInit(grid, n_bytes);
@@ -282,7 +286,7 @@ int main(int argc, char *argv[]) {
         } else {
             std::cout << "with a randomised initial pattern ";
         }
-        std::cout << "for " << n_iter << " iterations... ";
+        std::cout << "for " << n_iter << " iterations... " << std::flush;
     }
     // Evolve the simulation the specified number of iterations or until
     // reaching a static state
