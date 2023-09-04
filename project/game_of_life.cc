@@ -4,8 +4,6 @@
  * @brief   An optimised implementation of Conway's Game of Life (abbr. Life).
  ******************************************************************************/
 
-#include <cmath>
-#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -14,8 +12,11 @@
 
 volatile int fp_argidx = 0; // argv idx of optional pattern file argument
 volatile int n_iter = 99;   // maximum number of iterations to simulate
-volatile int output = 0;    // whether to dump grid as binary to file
-volatile int verbose = 0;   // whether to print runtime configuration to console
+volatile int output = 0;    // flag to dump grid as binary to file
+volatile int verbose = 0;   // flag to print runtime configuration to console
+
+int n_rows = 0;     // placeholder "empty" number of rows in the grid
+int n_cols = 0;     // placeholder "empty" number of columns in the grid
 
 int n_rows = 0;             // placeholder "empty" number of rows in the grid
 int n_cols = 0;             // placeholder "empty" number of columns in the grid
@@ -28,9 +29,9 @@ int n_cols = 0;             // placeholder "empty" number of columns in the grid
  *
  * @return Pointer to the memory allocated for the grid.
 */
-static char *GridCreateEmpty(const int n_bytes) {
-    char *grid = static_cast<char *>(std::malloc(n_bytes));
-    std::memset(grid, 0, n_bytes);
+static char *GridCreateEmpty(const int n_cells) {
+    char *grid = static_cast<char *>(std::malloc(n_cells));
+    std::memset(grid, 0, n_cells);
     return grid;
 }
 
@@ -41,9 +42,9 @@ static char *GridCreateEmpty(const int n_bytes) {
  * @param grid Pointer to the memory allocated for the grid
  * @param n_bytes Number of bytes allocated to the grid
 */
-static void GridRandomInit(char *grid, const int n_bytes) {
-    for (int i = 0; i < n_bytes; i++) {
-        grid[i] = static_cast<char>(std::rand() & 0xFF);
+static void GridRandomInit(char *grid, const int n_cells) {
+    for (int i = 0; i < n_cells; i++) {
+        grid[i] = static_cast<char>(std::rand() & 0x01);
     }
 }
 
@@ -67,27 +68,27 @@ static int GridLocalSum(char *grid, const int row, const int col,
     int sum = 0;
     if (row > 0) {
         if (col > 0) {
-            sum += !!(grid[cell_idx00 / 8] & (1 << (cell_idx00 % 8)));
+            sum += grid[cell_idx00];
         }
-        sum += !!(grid[(cell_idx00 + 1) / 8] & (1 << ((cell_idx00 + 1) % 8)));
+        sum += grid[cell_idx00 + 1];
         if (col < (n_cols - 1)) {
-            sum += !!(grid[(cell_idx00 + 2) / 8] & (1 << ((cell_idx00 + 2) % 8)));
+            sum += grid[cell_idx00 + 2];
         }
     }
     if (col > 0) {
-        sum += !!(grid[cell_idx10 / 8] & (1 << (cell_idx10 % 8)));
+        sum += grid[cell_idx10];
     }
-    sum += !!(grid[(cell_idx10 + 1) / 8] & (1 << ((cell_idx10 + 1) % 8)));
+    sum += grid[cell_idx10 + 1];
     if (col < (n_cols - 1)) {
-        sum += !!(grid[(cell_idx10 + 2) / 8] & (1 << ((cell_idx10 + 2) % 8)));
+        sum += grid[cell_idx10 + 2];
     }
     if (row < (n_rows - 1)) {
         if (col > 0) {
-            sum += !!(grid[cell_idx20 / 8] & (1 << (cell_idx20 % 8)));
+            sum += grid[cell_idx20];
         }
-        sum += !!(grid[(cell_idx20 + 1) / 8] & (1 << ((cell_idx20 + 1) % 8)));
+        sum += grid[cell_idx20 + 1];
         if (col < (n_cols - 1)) {
-            sum += !!(grid[(cell_idx20 + 2) / 8] & (1 << ((cell_idx20 + 2) % 8)));
+            sum += grid[cell_idx20 + 2];
         }
     }
     return sum;
@@ -103,12 +104,9 @@ static int GridLocalSum(char *grid, const int row, const int col,
  *
  * @return 1 if the cell is alive, else 0.
 */
-static int CellGetState(char *grid, const int row, const int col,
+static inline int CellGetState(char *grid, const int row, const int col,
         const int n_cols) {
-    int cell_idx = row * n_cols + col;
-    int byte_idx = cell_idx / 8;
-    char byte_mask = 0 | (1 << (cell_idx % 8));
-    return !!(grid[byte_idx] & byte_mask);
+    return grid[row * n_cols + col];
 }
 
 /**
@@ -118,19 +116,10 @@ static int CellGetState(char *grid, const int row, const int col,
  * @param row Row number of the cell
  * @param col Column number of the cell
  * @param n_cols Number of columns in the grid
- * @param state_changed Pointer to variable to whether state has just changed
 */
-static void CellSetState(char *grid, const int row, const int col,
-        const int n_cols, int state, int *state_changed) {
-    int cell_idx = row * n_cols + col;
-    int byte_idx = cell_idx / 8;
-    char byte_mask = 0 | (1 << (cell_idx % 8));
-    *state_changed = (!!(grid[byte_idx] & byte_mask) != state);
-    if (state) {
-        grid[byte_idx] |= byte_mask;
-    } else {
-        grid[byte_idx] &= ~byte_mask;
-    }
+static inline void CellSetState(char *grid, const int row, const int col,
+        const int n_cols, char state) {
+    grid[row * n_cols + col] = state;
 }
 
 /**
@@ -140,20 +129,19 @@ static void CellSetState(char *grid, const int row, const int col,
  * @param grid Pointer to the memory allocated for the grid
  * @param n_rows Number of rows in the grid
  * @param n_cols Number of columns in the grid
- * @param n_bytes Number of bytes allocated to the grid
+ * @param n_cells Number of cells in the grid
  * @param stop_early Pointer to a variable to store early stopping flag
  *
  * @return Returns a pointer to the evolved grid.
 */
 static char *GridEvolve(char *grid, const int n_rows, const int n_cols,
-        const int n_bytes, int *stop_early) {
+        const int n_cells, int *stop_early) {
     // Allocate copy of grid to hold intermediate evolved cell states
-    char *evolved_grid = static_cast<char *>(std::malloc(n_bytes));
-    std::memcpy(evolved_grid, grid, n_bytes);
-    // Early stopping condition: no cells changed (possibly all dead)
+    char *evolved_grid = static_cast<char *>(std::malloc(n_cells));
+    std::memcpy(evolved_grid, grid, n_cells);
+
     *stop_early = 1;
     // Update cell states in grid copy
-    int state_changed = 0;
     for (unsigned short i = 0; i < n_rows; i++) {
         for (unsigned short j = 0; j < n_cols; j++) {
             switch (GridLocalSum(grid, i, j, n_rows, n_cols)) {
@@ -164,9 +152,9 @@ static char *GridEvolve(char *grid, const int n_rows, const int n_cols,
                 case 3: {
                     // Cell (i, j) now alive, regardless of previous state
                     if (!CellGetState(grid, i, j, n_cols)) {
-                        CellSetState(evolved_grid, i, j, n_cols, 1, &state_changed);
+                        CellSetState(evolved_grid, i, j, n_cols, 1);
                     }
-                    *stop_early &= !state_changed;
+                    *stop_early = 0;
                     break;
                 }
                 case 4: {
@@ -176,9 +164,9 @@ static char *GridEvolve(char *grid, const int n_rows, const int n_cols,
                 default: {
                     // Cell (i, j) now dead, regardless of previous state
                     if (CellGetState(grid, i, j, n_cols)) {
-                        CellSetState(evolved_grid, i, j, n_cols, 0, &state_changed);
+                        CellSetState(evolved_grid, i, j, n_cols, 0);
                     }
-                    *stop_early &= !state_changed;
+                    *stop_early = 0;
                     break;
                 }
             }
@@ -193,10 +181,10 @@ static char *GridEvolve(char *grid, const int n_rows, const int n_cols,
  *
  * @param fptr Pointer to the file object to write to
  * @param grid Pointer to the memory allocated for the grid
- * @param n_bytes Number of bytes allocated to the grid
+ * @param n_cells Number of cells in the grid
 */
-static inline void GridSerialize(std::FILE *fptr, char *grid, const int n_bytes) {
-    std::fwrite(grid, 1, n_bytes, fptr);
+static inline void GridSerialize(std::FILE *fptr, char *grid, const int n_cells) {
+    std::fwrite(grid, 1, n_cells, fptr);
 }
 
 /**
@@ -211,7 +199,7 @@ static int ParseCmdline(int argc, char *argv[]) {
         "  -f, --file FILEPATH  path to a pattern file in RLE format\n"
         "  -i, --iters NITER    number of iterations to simulate\n"
         "  -o, --output         output the grid in binary every iteration\n"
-        "  -s, --size NxM       number of rows x columns in the grid \n"
+        "  -s, --size NxM       number of rows x columns in the grid\n"
         "  -v, --verbose        output runtime configuration to console\n\n";
     for (int i = 1; i < argc; i++) {
         if (!std::strcmp(argv[i], "-f") || !std::strcmp(argv[i], "--file")) {
@@ -263,7 +251,7 @@ int main(int argc, char *argv[]) {
     }
     // Create and initialise the grid (latter either randomly or with a pattern)
     char *grid;
-    int n_bytes;
+    int n_cells;
     if (!n_rows) {
         n_rows = 100;   // default number of rows
     }
@@ -293,7 +281,7 @@ int main(int argc, char *argv[]) {
     int stop_early;
     if (!output) {
         for (int i = 0; i < n_iter; i++) {
-            grid = GridEvolve(grid, n_rows, n_cols, n_bytes, &stop_early);
+            grid = GridEvolve(grid, n_rows, n_cols, n_cells, &stop_early);
             if (stop_early) {
                 break;
             }
@@ -303,8 +291,8 @@ int main(int argc, char *argv[]) {
     } else {
         std::FILE *fptr = std::fopen("game_of_life.out", "wb");
         for (int i = 0; i < n_iter; i++) {
-            GridSerialize(fptr, grid, n_bytes);
-            grid = GridEvolve(grid, n_rows, n_cols, n_bytes, &stop_early);
+            GridSerialize(fptr, grid, n_cells);
+            grid = GridEvolve(grid, n_rows, n_cols, n_cells, &stop_early);
             if (stop_early) {
                 break;
             }

@@ -9,7 +9,6 @@
 #include "parser.h"
 
 #include <cctype>
-#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
@@ -46,11 +45,11 @@ char *ParseRLEFile(const char *filename, int *n_rows, int *n_cols) {
     const int kBufferSize = 80;
     char buffer[kBufferSize] = {0};
 
-    char *grid;
+    char *grid = nullptr;
     int p_rows;         // number of rows in the pattern
-    int p_cols;         // number of cols in the pattern
+    int p_cols;         // number of columns in the pattern
     int p_row_idx = 0;  // current row index into pattern (subset of grid)
-    int p_col_idx = 0;  // current col index into pattern (subset of grid)
+    int p_col_idx = 0;  // current column index into pattern (subset of grid)
     int t_pad = 0;      // padding between top of pattern and top of grid
     int l_pad = 0;      // padding between left side of pattern and of grid
 
@@ -74,9 +73,9 @@ char *ParseRLEFile(const char *filename, int *n_rows, int *n_cols) {
                 } else {
                     l_pad = (*n_cols - p_cols) / 2;
                 }
-                size_t n_bytes = std::ceil((*n_rows) * (*n_cols) / 8.0);
-                grid = static_cast<char *>(std::malloc(n_bytes));
-                std::memset(grid, 0, n_bytes);
+                size_t n_cells = (*n_rows) * (*n_cols);
+                grid = static_cast<char *>(std::malloc(n_cells));
+                std::memset(grid, 0, n_cells);
                 break;
             }
             // Line starting with anything else is parsed as a pattern line
@@ -167,7 +166,7 @@ static void ParseRLEPatternLine(const char *buffer, int buffer_size, char *grid,
     }
 }
 
-static void GridAddPattern(char *grid, const int n_cols, const int row_idx,
+static inline void GridAddPattern(char *grid, const int n_cols, const int row_idx,
         int col_idx, int run_count) {
     int cell_idx = n_cols * row_idx + col_idx;
     int byte_idx = cell_idx / 8;

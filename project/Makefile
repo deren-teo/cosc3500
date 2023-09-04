@@ -11,7 +11,7 @@ debug: Makefile game_of_life.cc parser.h parser.cc
 	g++ $(CFLAGS) -O3 -g game_of_life.cc parser.cc -o game_of_life
 
 prof: Makefile game_of_life.cc parser.h parser.cc
-	g++ $(CFLAGS) -O0 -pg game_of_life.cc parser.cc -o game_of_life
+	g++ $(CFLAGS) -O0 -pg game_of_life.cc parser.h parser.cc -o game_of_life
 
 clean:
 	rm -rf *.o

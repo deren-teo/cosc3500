@@ -1,6 +1,6 @@
 #N Turing machine
 #O Paul Rendell
-#C A pattern capable of turing-complete computation. Created in April 
+#C A pattern capable of turing-complete computation. Created in April
 #C 2000.
 #C www.conwaylife.com/wiki/index.php?title=Turing_machine
 x = 1714, y = 1647, rule = B3/S23

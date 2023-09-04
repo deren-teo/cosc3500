@@ -9,8 +9,6 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include <cstdint>
-
 /**
  * Parse a run length encoded (RLE) pattern file and onto a Life grid.
  * Assumes the file is formatted as described by the LifeWiki article:
