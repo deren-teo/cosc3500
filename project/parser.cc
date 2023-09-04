@@ -9,49 +9,49 @@
 #include "parser.h"
 
 #include <cctype>
-#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
 
 /**
- * Greedily parses the string as an integer until the first non-digit.
+ * Parses the size of the pattern in an RLE file format into a number of rows
+ * and columns, stored in the given variables.
 */
-static int ParseIntGreedy(const char *buffer, int buffer_size, int idx_start,
-        int *idx_end);
-
-/**
- * Parses the number of rows and columns into the given variables.
-*/
-static void ParseRLEGridSize(const char *buffer, int buffer_size, int *n_rows,
-        int *n_cols);
+static void ParseRLEPatternSize(const char *buffer, int buffer_size,
+        int *p_rows, int *p_cols);
 
 /**
  * Parses a pattern line and adds the pattern to the grid starting at the given
  * row and column indices.
 */
-static void ParseRLEPatternLine(const char *buffer, int buffer_size,
-        uint8_t *grid, const int n_cols, int *row_idx, int *col_idx);
+static void ParseRLEPatternLine(const char *buffer, int buffer_size, char *grid,
+        const int n_cols, const int t_pad, const int l_pad, int *p_row_idx,
+        int *p_col_idx);
 
 /**
  * Adds `run_count` number of live cells to the grid, starting at the given
  * row and column.
 */
-static void GridAddPattern(uint8_t *grid, int n_cols, int row_idx, int col_idx,
+static void GridAddPattern(char *grid, int n_cols, int row_idx, int col_idx,
         int run_count);
 
 /** EXTERNAL FUNCTION DEFINITIONS *********************************************/
 
-uint8_t *ParseRLEFile(const char *filename, int *n_rows, int *n_cols) {
+char *ParseRLEFile(const char *filename, int *n_rows, int *n_cols) {
     std::FILE *fptr = std::fopen(filename, "r");
 
     // LifeWiki RLE format description specifies lines must not exceed 70 chars,
     // but newline, carriage return and null characters add to this
     const int kBufferSize = 80;
     char buffer[kBufferSize] = {0};
-    int row_idx = 0;
-    int col_idx = 0;
-    uint8_t *grid;
+
+    char *grid = nullptr;
+    int p_rows;         // number of rows in the pattern
+    int p_cols;         // number of columns in the pattern
+    int p_row_idx = 0;  // current row index into pattern (subset of grid)
+    int p_col_idx = 0;  // current column index into pattern (subset of grid)
+    int t_pad = 0;      // padding between top of pattern and top of grid
+    int l_pad = 0;      // padding between left side of pattern and of grid
 
     while (!std::feof(fptr)) {
         fgets(buffer, kBufferSize, fptr);
@@ -62,16 +62,26 @@ uint8_t *ParseRLEFile(const char *filename, int *n_rows, int *n_cols) {
             }
             // Line starting with 'x' gives grid dimensions
             case 'x': {
-                ParseRLEGridSize(buffer, kBufferSize, n_rows, n_cols);
-                size_t count = (*n_rows) * (*n_cols);
-                grid = static_cast<uint8_t *>(std::malloc(count));
-                std::memset(grid, 0, count);
+                ParseRLEPatternSize(buffer, kBufferSize, &p_rows, &p_cols);
+                if (*n_rows < p_rows) {
+                    *n_rows = p_rows;
+                } else {
+                    t_pad = (*n_rows - p_rows) / 2;
+                }
+                if (*n_cols < p_cols) {
+                    *n_cols = p_cols;
+                } else {
+                    l_pad = (*n_cols - p_cols) / 2;
+                }
+                size_t n_cells = (*n_rows) * (*n_cols);
+                grid = static_cast<char *>(std::malloc(n_cells));
+                std::memset(grid, 0, n_cells);
                 break;
             }
             // Line starting with anything else is parsed as a pattern line
             default: {
                 ParseRLEPatternLine(buffer, kBufferSize, grid, *n_cols,
-                    &row_idx, &col_idx);
+                    t_pad, l_pad, &p_row_idx, &p_col_idx);
                 break;
             }
         }
@@ -80,9 +90,7 @@ uint8_t *ParseRLEFile(const char *filename, int *n_rows, int *n_cols) {
     return grid;
 }
 
-/** INTERNAL FUNCTION DEFINITIONS *********************************************/
-
-static int ParseIntGreedy(const char *buffer, int buffer_size, int idx_start,
+int ParseIntGreedy(const char *buffer, int buffer_size, int idx_start,
         int *idx_end) {
 
     // Greedily parse digits until the first non-digit
@@ -103,24 +111,27 @@ static int ParseIntGreedy(const char *buffer, int buffer_size, int idx_start,
     return res;
 }
 
-static void ParseRLEGridSize(const char *buffer, int buffer_size, int *n_rows,
-        int *n_cols) {
+/** INTERNAL FUNCTION DEFINITIONS *********************************************/
+
+static void ParseRLEPatternSize(const char *buffer, int buffer_size,
+        int *p_rows, int *p_cols) {
 
     int idx_start = 0;
     int idx_end;
 
     // Parse the "x" dimension by looking for the first string of numbers
     while (!std::isdigit(buffer[idx_start++]));
-    *n_cols = ParseIntGreedy(buffer, buffer_size, idx_start - 1, &idx_end);
+    *p_cols = ParseIntGreedy(buffer, buffer_size, idx_start - 1, &idx_end);
 
     // Parse the "y" dimension by looking for the next string of numbers
     idx_start = idx_end + 1;
     while (!std::isdigit(buffer[idx_start++]));
-    *n_rows = ParseIntGreedy(buffer, buffer_size, idx_start - 1, &idx_end);
+    *p_rows = ParseIntGreedy(buffer, buffer_size, idx_start - 1, &idx_end);
 }
 
-static void ParseRLEPatternLine(const char *buffer, int buffer_size,
-        uint8_t *grid, const int n_cols, int *row_idx, int *col_idx) {
+static void ParseRLEPatternLine(const char *buffer, int buffer_size, char *grid,
+        const int n_cols, const int t_pad, const int l_pad, int *p_row_idx,
+        int *p_col_idx) {
 
     int idx_end;
     int run_count = 1;
@@ -130,19 +141,20 @@ static void ParseRLEPatternLine(const char *buffer, int buffer_size,
             return;
         }
         if (buffer[i] == 'b' ) {
-            *col_idx += run_count;
+            *p_col_idx += run_count;
             run_count = 1;
             continue;
         }
         if (buffer[i] == 'o') {
-            GridAddPattern(grid, n_cols, *row_idx, *col_idx, run_count);
-            *col_idx += run_count;
+            GridAddPattern(grid, n_cols, *p_row_idx + t_pad, *p_col_idx + l_pad,
+                run_count);
+            *p_col_idx += run_count;
             run_count = 1;
             continue;
         }
         if (buffer[i] == '$') {
-            *row_idx += run_count;
-            *col_idx = 0;
+            *p_row_idx += run_count;
+            *p_col_idx = 0;
             run_count = 1;
             continue;
         }
@@ -154,7 +166,7 @@ static void ParseRLEPatternLine(const char *buffer, int buffer_size,
     }
 }
 
-static void GridAddPattern(uint8_t *grid, const int n_cols, const int row_idx,
+static inline void GridAddPattern(char *grid, const int n_cols, const int row_idx,
         int col_idx, int run_count) {
 
     std::memset(grid + n_cols * row_idx + col_idx, 1, run_count);
