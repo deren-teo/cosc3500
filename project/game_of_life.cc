@@ -13,6 +13,7 @@
 volatile int fp_argidx = 0; // argv idx of optional pattern file argument
 volatile int n_iter = 99;   // maximum number of iterations to simulate
 volatile int output = 0;    // flag to dump grid as binary to file
+volatile int seed = 1;      // random seed, not used when reading RLE file
 volatile int verbose = 0;   // flag to print runtime configuration to console
 
 int n_rows = 0;     // placeholder "empty" number of rows in the grid
@@ -40,6 +41,7 @@ static char *GridCreateEmpty(const int n_cells) {
  * @param n_bytes Number of bytes allocated to the grid
 */
 static void GridRandomInit(char *grid, const int n_cells) {
+    std::srand(seed);
     for (int i = 0; i < n_cells; i++) {
         grid[i] = static_cast<char>(std::rand() & 0x01);
     }
@@ -196,6 +198,7 @@ static int ParseCmdline(int argc, char *argv[]) {
         "  -f, --file FILEPATH  path to a pattern file in RLE format\n"
         "  -i, --iters NITER    number of iterations to simulate\n"
         "  -o, --output         output the grid in binary every iteration\n"
+        "      --seed SEED      random seed (default: 1)\n"
         "  -s, --size NxM       number of rows x columns in the grid\n"
         "  -v, --verbose        output runtime configuration to console\n\n";
     for (int i = 1; i < argc; i++) {
@@ -215,6 +218,13 @@ static int ParseCmdline(int argc, char *argv[]) {
             }
         } else if (!std::strcmp(argv[i], "-o") || !std::strcmp(argv[i], "--output")) {
             output = 1;
+        } else if (!std::strcmp(argv[i], "--seed")) {
+            if (argc >= i + 1) {
+                seed = std::atoi(argv[++i]);
+            } else {
+                std::cout << help;
+                return 1;
+            }
         } else if (!std::strcmp(argv[i], "-s") || !std::strcmp(argv[i], "--size")) {
             if (argc >= i + 1) {
                 size_t buffer_size = std::strlen(argv[++i]);
