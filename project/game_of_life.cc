@@ -18,9 +18,6 @@ volatile int verbose = 0;   // flag to print runtime configuration to console
 int n_rows = 0;     // placeholder "empty" number of rows in the grid
 int n_cols = 0;     // placeholder "empty" number of columns in the grid
 
-int n_rows = 0;             // placeholder "empty" number of rows in the grid
-int n_cols = 0;             // placeholder "empty" number of columns in the grid
-
 /**
  * Allocates memory for a 2D grid on which Life will evolve. Each cell is
  * allocated a single bit, since a cell has binary state.
@@ -151,7 +148,7 @@ static char *GridEvolve(char *grid, const int n_rows, const int n_cols,
                 }
                 case 3: {
                     // Cell (i, j) now alive, regardless of previous state
-                    if (!CellGetState(grid, i, j, n_cols)) {
+                    if (CellGetState(grid, i, j, n_cols) == 0) {
                         CellSetState(evolved_grid, i, j, n_cols, 1);
                     }
                     *stop_early = 0;
@@ -163,7 +160,7 @@ static char *GridEvolve(char *grid, const int n_rows, const int n_cols,
                 }
                 default: {
                     // Cell (i, j) now dead, regardless of previous state
-                    if (CellGetState(grid, i, j, n_cols)) {
+                    if (CellGetState(grid, i, j, n_cols) == 1) {
                         CellSetState(evolved_grid, i, j, n_cols, 0);
                     }
                     *stop_early = 0;
@@ -259,12 +256,12 @@ int main(int argc, char *argv[]) {
         n_cols = 100;   // default number of columns
     }
     if (!fp_argidx) {
-        n_bytes = std::ceil(n_rows * n_cols / 8.0);
-        grid = GridCreateEmpty(n_bytes);
-        GridRandomInit(grid, n_bytes);
+        n_cells = n_rows * n_cols;
+        grid = GridCreateEmpty(n_cells);
+        GridRandomInit(grid, n_cells);
     } else {
         grid = ParseRLEFile(argv[fp_argidx], &n_rows, &n_cols);
-        n_bytes = std::ceil(n_rows * n_cols / 8.0);
+        n_cells = n_rows * n_cols;
     }
     // If verbose flag specified on the command line, print runtime config
     if (verbose) {
@@ -297,7 +294,7 @@ int main(int argc, char *argv[]) {
                 break;
             }
         }
-        GridSerialize(fptr, grid, n_bytes);
+        GridSerialize(fptr, grid, n_cells);
         std::fclose(fptr);
     }
     if (verbose) {

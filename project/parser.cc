@@ -168,18 +168,5 @@ static void ParseRLEPatternLine(const char *buffer, int buffer_size, char *grid,
 
 static inline void GridAddPattern(char *grid, const int n_cols, const int row_idx,
         int col_idx, int run_count) {
-    int cell_idx = n_cols * row_idx + col_idx;
-    int byte_idx = cell_idx / 8;
-    int bit_start = cell_idx % 8;
-    if (run_count > 8) {
-        int n_subruns = std::ceil(run_count / 8.0) - 1;
-        for (int i = 0; i < n_subruns; i++) {
-            grid[byte_idx++] = static_cast<char>(0xFF);
-        }
-    }
-    int n_partial = run_count % 8;
-    int bit_stop = bit_start + n_partial;
-    for (int i = bit_start; i < bit_stop; i++) {
-        grid[byte_idx] |= (1 << i);
-    }
+    std::memset(grid + n_cols * row_idx + col_idx, 1, run_count);
 }
