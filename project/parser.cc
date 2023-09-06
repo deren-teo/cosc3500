@@ -15,22 +15,40 @@
 
 /**
  * Parses the size of the pattern in an RLE file format into a number of rows
- * and columns, stored in the given variables.
+ * and columns and writes these to the given pointers.
+ *
+ * @param buffer String representing a line of an RLE file
+ * @param p_rows Pointer to the number of rows in the pattern
+ * @param p_cols Pointer to the number of columns in the pattern
 */
-static void ParseRLEPatternSize(const char *buffer, int buffer_size,
-        int *p_rows, int *p_cols);
+static void ParseRLEPatternSize(const char *buffer, int *p_rows, int *p_cols);
 
 /**
  * Parses a pattern line and adds the pattern to the grid starting at the given
- * row and column indices.
+ * row and column indices. Assumes the grid is zero-padded around the border.
+ *
+ * @param grid Pointer to memory allocated for the grid
+ * @param buffer String representing a line of an RLE file
+ * @param buffer_size Maximum length of buffer
+ * @param n_cols Number of columns in the grid, not including zero-padding
+ * @param t_pad Top padding between pattern and grid, including zero-padding
+ * @param l_pad Left padding between pattern and grid, including zero-padding
+ * @param p_row_idx Pointer to current row index into pattern
+ * @param p_col_idx Pointer to current column index into pattern
 */
-static void ParseRLEPatternLine(const char *buffer, int buffer_size, char *grid,
-        const int n_cols, const int t_pad, const int l_pad, int *p_row_idx,
-        int *p_col_idx);
+static void ParseRLEPatternLine(char *grid, const char *buffer,
+        const int buffer_size, const int n_cols, const int t_pad,
+        const int l_pad, int *p_row_idx, int *p_col_idx);
 
 /**
  * Adds `run_count` number of live cells to the grid, starting at the given
- * row and column.
+ * row and column. Assumes the grid is zero-padded around the border.
+ *
+ * @param grid Pointer to memory allocated for the grid
+ * @param n_cols Number of columns in the grid, not including zero-padding
+ * @param row_idx Current row index into grid
+ * @param col_idx Current column index into grid
+ * @param run_count Number of consecutive "1"s to write at current grid position
 */
 static void GridAddPattern(char *grid, int n_cols, int row_idx, int col_idx,
         int run_count);
@@ -62,25 +80,25 @@ char *ParseRLEFile(const char *filename, int *n_rows, int *n_cols) {
             }
             // Line starting with 'x' gives grid dimensions
             case 'x': {
-                ParseRLEPatternSize(buffer, kBufferSize, &p_rows, &p_cols);
+                ParseRLEPatternSize(buffer, &p_rows, &p_cols);
                 if (*n_rows < p_rows) {
                     *n_rows = p_rows;
                 } else {
-                    t_pad = (*n_rows - p_rows) / 2;
+                    t_pad = (*n_rows - p_rows) / 2 + 1; // incl. zero-padding
                 }
                 if (*n_cols < p_cols) {
                     *n_cols = p_cols;
                 } else {
-                    l_pad = (*n_cols - p_cols) / 2;
+                    l_pad = (*n_cols - p_cols) / 2 + 1; // incl. zero-padding
                 }
-                size_t n_cells = (*n_rows) * (*n_cols);
-                grid = static_cast<char *>(std::malloc(n_cells));
-                std::memset(grid, 0, n_cells);
+                size_t n_bytes = (*n_rows + 2) * (*n_cols + 2);
+                grid = static_cast<char *>(std::malloc(n_bytes));
+                std::memset(grid, 0, n_bytes);
                 break;
             }
             // Line starting with anything else is parsed as a pattern line
             default: {
-                ParseRLEPatternLine(buffer, kBufferSize, grid, *n_cols,
+                ParseRLEPatternLine(grid, buffer, kBufferSize, *n_cols,
                     t_pad, l_pad, &p_row_idx, &p_col_idx);
                 break;
             }
@@ -90,8 +108,7 @@ char *ParseRLEFile(const char *filename, int *n_rows, int *n_cols) {
     return grid;
 }
 
-int ParseIntGreedy(const char *buffer, int buffer_size, int idx_start,
-        int *idx_end) {
+int ParseIntGreedy(const char *buffer, int idx_start, int *idx_end) {
 
     // Greedily parse digits until the first non-digit
     *idx_end = idx_start + 1;
@@ -113,26 +130,23 @@ int ParseIntGreedy(const char *buffer, int buffer_size, int idx_start,
 
 /** INTERNAL FUNCTION DEFINITIONS *********************************************/
 
-static void ParseRLEPatternSize(const char *buffer, int buffer_size,
-        int *p_rows, int *p_cols) {
-
+static void ParseRLEPatternSize(const char *buffer, int *p_rows, int *p_cols) {
     int idx_start = 0;
     int idx_end;
 
     // Parse the "x" dimension by looking for the first string of numbers
     while (!std::isdigit(buffer[idx_start++]));
-    *p_cols = ParseIntGreedy(buffer, buffer_size, idx_start - 1, &idx_end);
+    *p_cols = ParseIntGreedy(buffer, idx_start - 1, &idx_end);
 
     // Parse the "y" dimension by looking for the next string of numbers
     idx_start = idx_end + 1;
     while (!std::isdigit(buffer[idx_start++]));
-    *p_rows = ParseIntGreedy(buffer, buffer_size, idx_start - 1, &idx_end);
+    *p_rows = ParseIntGreedy(buffer, idx_start - 1, &idx_end);
 }
 
-static void ParseRLEPatternLine(const char *buffer, int buffer_size, char *grid,
-        const int n_cols, const int t_pad, const int l_pad, int *p_row_idx,
-        int *p_col_idx) {
-
+static void ParseRLEPatternLine(char *grid, const char *buffer,
+        const int buffer_size, const int n_cols, const int t_pad,
+        const int l_pad, int *p_row_idx, int *p_col_idx) {
     int idx_end;
     int run_count = 1;
 
@@ -159,7 +173,7 @@ static void ParseRLEPatternLine(const char *buffer, int buffer_size, char *grid,
             continue;
         }
         if (std::isdigit(buffer[i])) {
-            run_count = ParseIntGreedy(buffer, buffer_size, i, &idx_end);
+            run_count = ParseIntGreedy(buffer, i, &idx_end);
             i = idx_end - 1;
             continue;
         }
@@ -168,5 +182,5 @@ static void ParseRLEPatternLine(const char *buffer, int buffer_size, char *grid,
 
 static inline void GridAddPattern(char *grid, const int n_cols, const int row_idx,
         int col_idx, int run_count) {
-    std::memset(grid + n_cols * row_idx + col_idx, 1, run_count);
+    std::memset(grid + (n_cols + 2) * row_idx + col_idx, 1, run_count);
 }
