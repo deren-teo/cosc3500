@@ -6,7 +6,7 @@ from tqdm import tqdm
 def print_pattern(bytestr, n_rows, n_cols):
     charmap = {0: "  ", 1: "{}"}
     for i in range(n_rows):
-        print("|" + "".join(charmap[c] for c in bytestr[i*n_cols:(i+1)*n_cols]) + "|")
+        print("|" + "".join(charmap[c & 0x01] for c in bytestr[i*n_cols:(i+1)*n_cols]) + "|")
 
 def main():
     parser = argparse.ArgumentParser()

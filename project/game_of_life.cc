@@ -19,6 +19,11 @@ volatile int row_size  = 0;  // zero-padded row size; i.e. n_cols + 2
 int n_rows = 0; // number of rows in the grid, not including zero-padding
 int n_cols = 0; // number of columns in the grid, not including zero-padding
 
+// Given a byte representing a cell state and neighbour sum in the form:
+//     <3 bits: unused><4 bits: neighbour sum><1 bit: state>
+// kStateChanges maps the byte to 1 if the state will change, else 0
+const int kStateChanges = 0x2AA4A; // bin: 101010101001001010
+
 /**
  * Allocates memory for a 2D grid on which Life will evolve. Each cell is
  * allocated a single bit, since a cell has binary state.
@@ -46,38 +51,120 @@ static void GridRandomInit(char *grid) {
     for (int i = 0; i < n_rows; i++) {
         idx += row_size;
         for (int j = 1; j <= n_cols; j++) {
-            grid[idx + j] = static_cast<char>(std::rand());
+            grid[idx + j] = std::rand() & 0x01;
         }
     }
 }
 
 /**
- * Returns the sum of the 3x3 grid of cells around and including (row, col).
- * Assumes the grid is zero-padded around the border, hence no special
- * consideration is taken with cells otherwise at the edge of the grid.
+ * Pre-calculates the neighbourhood sums of all cells before first evolution.
+ * Assumes the grid is zero-padded on each side. Calculates these sums too,
+ * to avoid underflow errors during evolution.
  *
  * @param grid Pointer to the memory allocated for the grid
- * @param row Row number of centre cell, indexed from 1 to n_rows
- * @param col Column number of centre cell, indexed from 1 to n_rows
- *
- * @return Sum of the 3x3 grid of cells centred on (row, col).
 */
-static int GridLocalSum(char *grid, const int row, const int col) {
-    int idx_ctr = row * row_size + col;
-    int idx_abv = idx_ctr - row_size;
-    int idx_blw = idx_ctr + row_size;
-
+static void GridPrecalculate(char *grid) {
+    // Corner indices of zero-padding
+    // NOTE: top-left corner is just index 0
+    int tr = row_size - 1;
+    int bl = (n_cols + 1) * row_size;
+    int br = (n_cols + 2) * row_size - 1;
+    // Top left corner
+    grid[0] = (grid[row_size + 1] & 0x01) << 1;
+    // Top right corner
+    grid[tr] = (grid[row_size + row_size - 2] & 0x01) << 1;
+    // Botton left corner
+    grid[bl] = (grid[n_cols * row_size + 1] & 0x01) << 1;
+    // Botton right corner
+    grid[br] = (grid[(n_cols + 1) * row_size - 2] & 0x01) << 1;
+    // Top edge, except corners
     int sum = 0;
-    sum += grid[idx_abv - 1];
-    sum += grid[idx_abv];
-    sum += grid[idx_abv + 1];
-    sum += grid[idx_ctr - 1];
-    sum += grid[idx_ctr];
-    sum += grid[idx_ctr + 1];
-    sum += grid[idx_blw - 1];
-    sum += grid[idx_blw];
-    sum += grid[idx_blw + 1];
-    return sum;
+    for (int j = 1; j < tr; j++) {
+        int j_blw = j + row_size;
+        sum =  grid[j_blw - 1] & 0x01;
+        sum += grid[j_blw] & 0x01;
+        sum += grid[j_blw + 1] & 0x01;
+        grid[j] |= sum << 1;
+    }
+    // Bottom edge, except corners
+    for (int j = bl + 1; j < br; j++) {
+        int j_abv = j - row_size;
+        sum =  grid[j_abv - 1] & 0x01;
+        sum += grid[j_abv] & 0x01;
+        sum += grid[j_abv + 1] & 0x01;
+        grid[j] |= sum << 1;
+    }
+    // Left edge, except corners
+    for (int i = row_size; i < bl; i += row_size) {
+        int i_rgt = i + 1;
+        sum =  grid[i_rgt - row_size] & 0x01;
+        sum += grid[i_rgt] & 0x01;
+        sum += grid[i_rgt + row_size] & 0x01;
+        grid[i] |= sum << 1;
+    }
+    // Right edge, except corners
+    for (int i = tr + row_size; i < br; i += row_size) {
+        int i_lft = i - 1;
+        sum =  grid[i_lft - row_size] & 0x01;
+        sum += grid[i_lft] & 0x01;
+        sum += grid[i_lft + row_size] & 0x01;
+        grid[i] |= sum << 1;
+    }
+    // Rest of the grid
+    int idx = 0;
+    for (int i = 0; i < n_rows; i++) {
+        idx += row_size;
+        for (int j = 1; j <= n_cols; j++) {
+            int idx_j = idx + j;
+            int idx_abv = idx_j - row_size;
+            int idx_blw = idx_j + row_size;
+            sum =  grid[idx_abv - 1] & 0x01;
+            sum += grid[idx_abv] & 0x01;
+            sum += grid[idx_abv + 1] & 0x01;
+            sum += grid[idx_j - 1] & 0x01;
+            // NOTE: a cell is not included in its own neighbour count
+            sum += grid[idx_j + 1] & 0x01;
+            sum += grid[idx_blw - 1] & 0x01;
+            sum += grid[idx_blw] & 0x01;
+            sum += grid[idx_blw + 1] & 0x01;
+            grid[idx_j] |= sum << 1;
+        }
+    }
+}
+
+/**
+ * Sets the cell with the given index to the dead state and decrements the
+ * neighbour sum count of all surrounding cells.
+ *
+ * @param grid Pointer to the memory allocated for the grid
+ * @param idx Index of the cell whose state to change
+*/
+static void GridSetDead(char *grid, int idx) {
+    int idx_abv = idx - row_size;
+    int idx_blw = idx + row_size;
+    grid[idx_abv - 1] -= 2;
+    grid[idx_abv]     -= 2;
+    grid[idx_abv + 1] -= 2;
+    grid[idx - 1]     -= 2;
+    grid[idx]         &= 0xFE;
+    grid[idx + 1]     -= 2;
+    grid[idx_blw - 1] -= 2;
+    grid[idx_blw]     -= 2;
+    grid[idx_blw + 1] -= 2;
+}
+
+static void GridSetLive(char *grid, int idx) {
+    int idx_abv = idx - row_size;
+    int idx_blw = idx + row_size;
+    grid[idx_abv - 1] += 2;
+    grid[idx_abv]     += 2;
+    grid[idx_abv + 1] += 2;
+    grid[idx - 1]     += 2;
+    grid[idx]         |= 0x01;
+    grid[idx + 1]     += 2;
+    grid[idx_blw - 1] += 2;
+    grid[idx_blw]     += 2;
+    grid[idx_blw + 1] += 2;
 }
 
 /**
@@ -98,33 +185,18 @@ static char *GridEvolve(char *grid, const int n_bytes, int *is_static) {
 
     // Update cell states in grid copy
     *is_static = 1;
-    for (int i = 1; i <= n_rows; i++) {
+    int idx = 0;
+    for (int i = 0; i < n_rows; i++) {
+        idx += row_size;
         for (int j = 1; j <= n_cols; j++) {
-            switch (GridLocalSum(grid, i, j)) {
-                case 0: {
-                    // All cells around (i, j) are dead; possibly early stop
-                    break;
+            int idxj = idx + j;
+            if (kStateChanges & (1 << grid[idxj])) {
+                if (grid[idxj] & 0x01) {
+                    GridSetDead(evolved_grid, idxj);
+                } else {
+                    GridSetLive(evolved_grid, idxj);
                 }
-                case 3: {
-                    // Cell (i, j) now alive, regardless of previous state
-                    if (grid[i * row_size + j] == 0) {
-                        evolved_grid[i * row_size + j] = 1;
-                    }
-                    *is_static = 0;
-                    break;
-                }
-                case 4: {
-                    // (i, j) does not change state; possible early stop
-                    break;
-                }
-                default: {
-                    // Cell (i, j) now dead, regardless of previous state
-                    if (grid[i * row_size + j] == 1) {
-                        evolved_grid[i * row_size + j] = 0;
-                    }
-                    *is_static = 0;
-                    break;
-                }
+                *is_static = 0;
             }
         }
     }
@@ -246,6 +318,7 @@ int main(int argc, char *argv[]) {
     }
     // Evolve the simulation the specified number of iterations or until
     // reaching a static state
+    GridPrecalculate(grid);
     int is_static = 0;
     if (!output) {
         for (int i = 0; i < n_iter; i++) {
