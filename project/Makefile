@@ -15,4 +15,6 @@ prof: Makefile game_of_life.cc parser.h parser.cc
 
 clean:
 	rm -rf *.o
+	rm -rf *.txt
+	rm -rf *.out
 	rm -rf game_of_life
