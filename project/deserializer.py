@@ -11,7 +11,7 @@ def print_pattern(bytestr, n_rows, n_cols):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("filename")
-    parser.add_argument("--size")
+    parser.add_argument("size")
     args = parser.parse_args()
 
     if "x" not in args.size:
