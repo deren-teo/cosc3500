@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --gres gpu:1
 #SBATCH --nodelist=vgpu10-0,vgpu10-1
-#SBATCH --time=0-5:00
+#SBATCH --time=0-00:15:00
 #You could add these to your bashrc if you wanted
 module load compiler-rt/latest
 module add mkl/latest

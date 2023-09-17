@@ -8,21 +8,21 @@ float rubric[3][RUBRIC_LENGTH];
 int rubricInit()
 {
     //CPU MARKS
-    rubric[RUBRIC_CPU][7] = 2.1;
-    rubric[RUBRIC_CPU][6] = 19.4;
-    rubric[RUBRIC_CPU][5] = 29.9;
-    rubric[RUBRIC_CPU][4] = 58.8;
-    rubric[RUBRIC_CPU][3] = 129.2;
+    rubric[RUBRIC_CPU][7] = 2.3;
+    rubric[RUBRIC_CPU][6] = 16.5;
+    rubric[RUBRIC_CPU][5] = 36.2;
+    rubric[RUBRIC_CPU][4] = 64.3;
+    rubric[RUBRIC_CPU][3] = 121.0;
     rubric[RUBRIC_CPU][2] = 1000;
     // wrong answer, or doesn't compile
     rubric[RUBRIC_CPU][1] = 1000;
     rubric[RUBRIC_CPU][0] = 1000;
 
     //GPU MARKS
-    rubric[RUBRIC_GPU][7] = 4.1;
-    rubric[RUBRIC_GPU][6] = 6.2;
-    rubric[RUBRIC_GPU][5] = 19.9;
-    rubric[RUBRIC_GPU][4] = 34.2;
+    rubric[RUBRIC_GPU][7] = 4.9;
+    rubric[RUBRIC_GPU][6] = 8;
+    rubric[RUBRIC_GPU][5] = 24.8;
+    rubric[RUBRIC_GPU][4] = 45.7;
     rubric[RUBRIC_GPU][3] = 100;
     rubric[RUBRIC_GPU][2] = 1000;
     // wrong answer, or doesn't compile
@@ -30,15 +30,15 @@ int rubricInit()
     rubric[RUBRIC_GPU][0] = 1000;
 
     //MPI MARKS
-    rubric[RUBRIC_MPI][7] = 4.3;
-    rubric[RUBRIC_MPI][6] = 9.9;
-    rubric[RUBRIC_MPI][5] = 15.4;
-    rubric[RUBRIC_MPI][4] = 30.3;
-    rubric[RUBRIC_MPI][3] = 64.8;
+    rubric[RUBRIC_MPI][7] = 1.4;
+    rubric[RUBRIC_MPI][6] = 8.3;
+    rubric[RUBRIC_MPI][5] = 18.5;
+    rubric[RUBRIC_MPI][4] = 31.6;
+    rubric[RUBRIC_MPI][3] = 60.8;
     rubric[RUBRIC_MPI][2] = 1000;
     // wrong answer, or doesn't compile
     rubric[RUBRIC_MPI][1] = 1000;
-    rubric[RUBRIC_MPI][0] = 1000;  
+    rubric[RUBRIC_MPI][0] = 1000;
     return 1;
 }
 
@@ -47,12 +47,7 @@ float getGrade(float performanceFactor, float err, float* gradeTable)
     //floating point error tolerance of the answer given
     const float errTolerance = 1e-7;
 
-    // Matrix multiplication doesn't work properly. 1 point for submitting something that runs at least.
-    if (err > errTolerance)
-    {
-        return 1;
-    }
-    else
+    if (abs(err) <= errTolerance)
     {
         // Matrix multiplication works, but is about as slow as possible.
         if (performanceFactor >= gradeTable[2])
@@ -80,13 +75,18 @@ float getGrade(float performanceFactor, float err, float* gradeTable)
                         float x = performanceFactor;
 
                         float grade = y1 + ((x - x1) / (x2 - x1) * (y2 - y1));
-                        grade = ceil(grade * 10.0);
+                        grade = floor(grade * 10.0);
                         grade = grade / 10.0;
                         return grade;
                     }
                 }
             }
         }
+    }
+    else
+    {
+        // Matrix multiplication doesn't work properly. 1 point for submitting something that runs at least.
+        return 1;
     }
     return 1;
 }
