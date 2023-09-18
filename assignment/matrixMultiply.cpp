@@ -1,4 +1,5 @@
 #include "matrixMultiply.h"
+// #include <cstdio> // DEBUG
 /**
 * @brief Implements an NxN matrix multiply C=A*B
 *
@@ -12,5 +13,18 @@
 * */
 void matrixMultiply(int N, const float* A, const float* B, float* C, int* args, int argCount)
 {
+    // Clear any existing values in C before calculating new values
+    memset(C, 0, sizeof(float) * N * N);
 
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < N; j++)
+        {
+            for (int k = 0; k < N; k++)
+            {
+                // Fortran order
+                C[i + j * N] += A[i + k * N] * B[k + j * N];
+            }
+        }
+    }
 }
