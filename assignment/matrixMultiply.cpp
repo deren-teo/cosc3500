@@ -29,11 +29,16 @@ void matrixMultiply(int N, const float* A, const float* B, float* C, int* args, 
                     for (int kk = 0; kk < 64; kk++)
                     {
                         int K = k + kk;
-                        for (int ii = 0; ii < 64; ii++)
+                        for (int ii = 0; ii < 64; ii += 8)
                         {
                             int I = i + ii;
                             // Fortran order
-                            C[I + J * N] += A[I + K * N] * B[K + J * N];
+                            __m256 a = _mm256_loadu_ps(A + I + K * N);
+                            __m256 b = _mm256_set1_ps(B[K + J * N]);
+                            __m256 x = _mm256_mul_ps(a, b);
+                            __m256 c = _mm256_loadu_ps(C + I + J * N);
+                            c = _mm256_add_ps(c, x);
+                            _mm256_storeu_ps(C + I + J * N, c);
                         }
                     }
                 }
