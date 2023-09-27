@@ -13,7 +13,7 @@ void matrixMultiply_MPI(int N, const float* A, const float* B, float* C, int* ar
     int jEnd = jStart + N / 2;
 
     // Cache blocking using block sizes of 64
-    #pragma omp parallel for
+    #pragma omp parallel for collapse(3)
     for (int j = jStart; j < jEnd; j += 64)
     {
         for (int k = 0; k < N; k += 64)
