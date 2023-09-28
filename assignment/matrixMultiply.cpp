@@ -1,5 +1,7 @@
 #include "matrixMultiply.h"
 
+#define N_BLOCK 64 // cache blocking occurs in blocks of size N_BLOCK x N_BLOCK
+
 /**
 * @brief Implements an NxN matrix multiply C=A*B
 *
@@ -16,40 +18,44 @@ void matrixMultiply(int N, const float* A, const float* B, float* C, int* args, 
     // Clear any existing values in C before calculating new values
     memset(C, 0, sizeof(float) * N * N);
 
-    // Cache blocking using block sizes of 64
+    // Cache blocking using block sizes of N_BLOCK
     #pragma omp parallel for
-    for (int j = 0; j < N; j += 64)
+    for (int j = 0; j < N; j += N_BLOCK)
     {
-        for (int k = 0; k < N; k += 64)
+        for (int k = 0; k < N; k += N_BLOCK)
         {
-            for (int i = 0; i < N; i += 64)
+            for (int i = 0; i < N; i += N_BLOCK)
             {
-                for (int jj = 0; jj < 64; jj++)
+                for (int jj = 0; jj < N_BLOCK; jj++)
                 {
                     int J = j + jj;
-                    for (int kk = 0; kk < 64; kk++)
+                    for (int kk = 0; kk < N_BLOCK; kk++)
                     {
                         int K = k + kk;
+                        // Fortran order
                         __m256 b = _mm256_set1_ps(B[K + J * N]);
 
-                        // Fortran order
-                        __m256 a1 = _mm256_load_ps(A + i + K * N);
-                        __m256 a2 = _mm256_load_ps(A + i + 8 + K * N);
-                        __m256 a3 = _mm256_load_ps(A + i + 16 + K * N);
-                        __m256 a4 = _mm256_load_ps(A + i + 24 + K * N);
-                        __m256 a5 = _mm256_load_ps(A + i + 32 + K * N);
-                        __m256 a6 = _mm256_load_ps(A + i + 40 + K * N);
-                        __m256 a7 = _mm256_load_ps(A + i + 48 + K * N);
-                        __m256 a8 = _mm256_load_ps(A + i + 56 + K * N);
+                        const float *addrBaseA = A + i + K * N;
+                        float *addrBaseC = C + i + J * N;
 
-                        __m256 c1 = _mm256_load_ps(C + i + J * N);
-                        __m256 c2 = _mm256_load_ps(C + i + 8 + J * N);
-                        __m256 c3 = _mm256_load_ps(C + i + 16 + J * N);
-                        __m256 c4 = _mm256_load_ps(C + i + 24 + J * N);
-                        __m256 c5 = _mm256_load_ps(C + i + 32 + J * N);
-                        __m256 c6 = _mm256_load_ps(C + i + 40 + J * N);
-                        __m256 c7 = _mm256_load_ps(C + i + 48 + J * N);
-                        __m256 c8 = _mm256_load_ps(C + i + 56 + J * N);
+                        // Innermost unrolled loop has cache block size hardcoded
+                        __m256 a1 = _mm256_load_ps(addrBaseA);
+                        __m256 a2 = _mm256_load_ps(addrBaseA + 8);
+                        __m256 a3 = _mm256_load_ps(addrBaseA + 16);
+                        __m256 a4 = _mm256_load_ps(addrBaseA + 24);
+                        __m256 a5 = _mm256_load_ps(addrBaseA + 32);
+                        __m256 a6 = _mm256_load_ps(addrBaseA + 40);
+                        __m256 a7 = _mm256_load_ps(addrBaseA + 48);
+                        __m256 a8 = _mm256_load_ps(addrBaseA + 56);
+
+                        __m256 c1 = _mm256_load_ps(addrBaseC);
+                        __m256 c2 = _mm256_load_ps(addrBaseC + 8);
+                        __m256 c3 = _mm256_load_ps(addrBaseC + 16);
+                        __m256 c4 = _mm256_load_ps(addrBaseC + 24);
+                        __m256 c5 = _mm256_load_ps(addrBaseC + 32);
+                        __m256 c6 = _mm256_load_ps(addrBaseC + 40);
+                        __m256 c7 = _mm256_load_ps(addrBaseC + 48);
+                        __m256 c8 = _mm256_load_ps(addrBaseC + 56);
 
                         __m256 x1 = _mm256_mul_ps(a1, b);
                         __m256 x2 = _mm256_mul_ps(a2, b);
@@ -69,14 +75,14 @@ void matrixMultiply(int N, const float* A, const float* B, float* C, int* args, 
                         c7 = _mm256_add_ps(c7, x7);
                         c8 = _mm256_add_ps(c8, x8);
 
-                        _mm256_store_ps(C + i + J * N, c1);
-                        _mm256_store_ps(C + i + 8 + J * N, c2);
-                        _mm256_store_ps(C + i + 16 + J * N, c3);
-                        _mm256_store_ps(C + i + 24 + J * N, c4);
-                        _mm256_store_ps(C + i + 32 + J * N, c5);
-                        _mm256_store_ps(C + i + 40 + J * N, c6);
-                        _mm256_store_ps(C + i + 48 + J * N, c7);
-                        _mm256_store_ps(C + i + 56 + J * N, c8);
+                        _mm256_store_ps(addrBaseC, c1);
+                        _mm256_store_ps(addrBaseC + 8, c2);
+                        _mm256_store_ps(addrBaseC + 16, c3);
+                        _mm256_store_ps(addrBaseC + 24, c4);
+                        _mm256_store_ps(addrBaseC + 32, c5);
+                        _mm256_store_ps(addrBaseC + 40, c6);
+                        _mm256_store_ps(addrBaseC + 48, c7);
+                        _mm256_store_ps(addrBaseC + 56, c8);
                     }
                 }
             }
