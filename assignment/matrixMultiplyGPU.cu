@@ -1,26 +1,15 @@
 #include "matrixMultiplyGPU.cuh"
-#include <iostream> // DEBUG only
 
 #define TILESIZE_N  64
 #define TILESIZE_K  16
 #define THREADTILE   4
-
-// DEBUG only
-void checkError(cudaError_t e)
-{
-    if (e != cudaSuccess)
-    {
-        std::cerr << "CUDA error: " << int(e) << " : " << cudaGetErrorString(e) << '\n';
-        abort();
-    }
-}
 
 __host__ void matrixMultiply_GPU(int N, const float* A, const float* B, float* C, int *arg, int argCount)
 {
     // NOTE: GradeBot already copies A, B and C to the GPU
 
     // Clear any existing values in C before calculating new values
-    checkError(cudaMemset(C, 0, N * N * sizeof(float)));
+    cudaMemset(C, 0, N * N * sizeof(float));
 
     // NOTE: N must be a multiple of TILESIZE_N
     dim3 numBlocks(N / TILESIZE_N, N / TILESIZE_N);
