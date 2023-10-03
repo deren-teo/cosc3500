@@ -40,8 +40,8 @@ __global__ void matrixMultiplyKernel_GPU(int N, const float* A, const float* B, 
     const int threadCol = threadIdx.x / (TILESIZE_N / THREADTILE);
 
     // Tiles of A and B cached in shared memory
-    __shared__ float tileA[TILESIZE_N][TILESIZE_K];
-    __shared__ float tileB[TILESIZE_K][TILESIZE_N];
+    __shared__ float tileA[TILESIZE_K][TILESIZE_N];
+    __shared__ float tileB[TILESIZE_N][TILESIZE_K];
 
     // Thread-local alloc. for each thread to calc. 4x4 set of elements of C
     float threadA[THREADTILE] = {0.0};
@@ -67,13 +67,13 @@ __global__ void matrixMultiplyKernel_GPU(int N, const float* A, const float* B, 
         // Cache tiles from A and B into shared memory
         for (int colOffset = 0; colOffset < TILESIZE_K; colOffset += colStrideA)
         {
-            tileA[loadRowA][loadColA + colOffset] =
-                A[loadRowA + (loadColA + colOffset) * N];
+            tileA[loadColA + colOffset][loadRowA] =
+                A[(loadColA + colOffset) * N + loadRowA];
         }
         for (int colOffset = 0; colOffset < TILESIZE_N; colOffset += colStrideB)
         {
-            tileB[loadRowB][loadColB + colOffset] =
-                B[loadRowB + (loadColB + colOffset) * N];
+            tileB[loadColB + colOffset][loadRowB] =
+                B[(loadColB + colOffset) * N + loadRowB];
         }
         __syncthreads();
 
@@ -87,18 +87,18 @@ __global__ void matrixMultiplyKernel_GPU(int N, const float* A, const float* B, 
             // Load row of A and column of B into thread-local registers
             for (int threadI = 0; threadI < THREADTILE; threadI++)
             {
-                threadA[threadI] = tileA[threadRow * THREADTILE + threadI][tileK];
+                threadA[threadI] = tileA[tileK][threadRow * THREADTILE + threadI];
             }
             for (int threadJ = 0; threadJ < THREADTILE; threadJ++)
             {
-                threadB[threadJ] = tileB[tileK][threadCol * THREADTILE + threadJ];
+                threadB[threadJ] = tileB[threadCol * THREADTILE + threadJ][tileK];
             }
             // Accumulate matrix multiplication result in thread-local registers
             for (int threadJ = 0; threadJ < THREADTILE; threadJ++)
             {
                 for (int threadI = 0; threadI < THREADTILE; threadI++)
                 {
-                    threadC[threadI][threadJ] += threadA[threadI] * threadB[threadJ];
+                    threadC[threadJ][threadI] += threadA[threadI] * threadB[threadJ];
                 }
             }
         }
@@ -111,7 +111,7 @@ __global__ void matrixMultiplyKernel_GPU(int N, const float* A, const float* B, 
     {
         for (int threadI = 0; threadI < THREADTILE; threadI++)
         {
-            C[threadBaseIdx + threadI + threadJ * N] = threadC[threadI][threadJ];
+            C[threadBaseIdx + threadI + threadJ * N] = threadC[threadJ][threadI];
         }
     }
 }
