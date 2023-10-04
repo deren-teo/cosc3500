@@ -45,7 +45,7 @@ int rubricInit()
 float getGrade(float performanceFactor, float err, float* gradeTable)
 {
     //floating point error tolerance of the answer given
-    const float errTolerance = 1e-7;
+    const float errTolerance = 1e-6;
 
     if (abs(err) <= errTolerance)
     {

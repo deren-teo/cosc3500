@@ -1,11 +1,10 @@
 #!/bin/bash -l
 #
-#SBATCH --job-name=COSC3500_Assignment
-#SBATCH --nodes=2
-#SBATCH --ntasks=2
+#SBATCH --job-name=COSC3500_Debug
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
-#SBATCH --gres gpu:1
 #SBATCH --time=0-00:05:00
 #You could add these to your bashrc if you wanted
 module load compiler-rt/latest
@@ -22,4 +21,4 @@ make all
 hostname
 #"map-by node" (assigns processes per node. i.e. to make sure they're running on separate nodes, not all on the same node)
 #"bind-to none" (for whatever reason, by default mpiexec will lock to a single core (i.e. single-threaded), bind-to none means the mpi process is free to use whatever cores it wants)
-time mpiexec -n 2 -map-by node -bind-to none ./Assignment1_GradeBot 2048 4 1 1 1
+time mpiexec -n 1 -map-by node -bind-to none ./Assignment1_GradeBot 128 4 1 0 0
