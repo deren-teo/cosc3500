@@ -19,10 +19,16 @@ __host__ void matrixMultiply_GPU(int N, const float* A, const float* B, float* C
 
 __global__ void matrixMultiplyKernel_GPU(int N, const float* A, const float* B, float* C, int flag0, int flag1, int flag2)
 {
-    // NOTE: this implemented borrows from the 2D blocktiling explanation from:
+    // NOTE: this implementation borrows from the 2D blocktiling explanation of:
+    //
     //  S. Boehm. "How to Optimize a CUDA Matmul Kernel for cuBLAS-like Performance:
     //      a Worklog." siboehm.com. https://siboehm.com/articles/22/CUDA-MMM
     //      (accessed Oct. 1, 2023).
+    //
+    // However, unlike Boehm, this kernel is specific to matrix-matrix multiply
+    // (not a GEMM kernel) and uses 2D shared and thread-local memory. Further,
+    // whereas Boehm's kernel operates on row-major matrices, this kernel is
+    // intended for column-major matrices.
 
     // Indices of current thread within its block of 16x16 threads
     const int threadRow = threadIdx.x % (TILESIZE_N / THREADTILE);
