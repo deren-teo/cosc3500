@@ -10,5 +10,4 @@
 #SBATCH --output=slurm-%j.out
 #SBATCH --error=slurm-%j.err
 
-conda activate coscenv
-python deserializer.py game_of_life.out 120x120 > game_of_life.txt
+python deserializer.py game_of_life.out 120 120 > game_of_life.txt
