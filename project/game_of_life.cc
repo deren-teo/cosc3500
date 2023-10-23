@@ -10,11 +10,11 @@
 
 #include "parser.h"
 
-volatile int fp_argidx = 0;  // argv idx of optional pattern file argument
-volatile int n_iter    = 99; // maximum number of iterations to simulate
-volatile int output    = 0;  // flag to dump grid as binary to file
-volatile int verbose   = 0;  // flag to print runtime configuration to console
-volatile int row_size  = 0;  // zero-padded row size; i.e. n_cols + 2
+int fp_argidx = 0;  // argv idx of optional pattern file argument
+int n_iter    = 99; // maximum number of iterations to simulate
+int output    = 0;  // flag to dump grid as binary to file
+int verbose   = 0;  // flag to print runtime configuration to console
+int row_size  = 0;  // zero-padded row size; i.e. n_cols + 2
 
 int n_rows = 0; // number of rows in the grid, not including zero-padding
 int n_cols = 0; // number of columns in the grid, not including zero-padding
