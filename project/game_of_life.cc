@@ -172,17 +172,14 @@ static void GridSetLive(char *grid, int idx) {
  * If no cell states changed this iteration, sets the `is_static` flag to 1.
  *
  * @param grid Pointer to the memory allocated for the grid
+ * @param temp Pointer to the memory allocated for another temporary grid
  * @param n_bytes Number of bytes allocated to the grid, including zero-padding
  * @param is_static Pointer to an external flag indicating whether grid has
  *      reached a static state or is still evolving
  *
  * @return Returns a pointer to the evolved grid.
 */
-static char *GridEvolve(char *grid, const int n_bytes, int *is_static) {
-    // Allocate copy of grid to write evolved cell states
-    char *evolved_grid = static_cast<char *>(std::malloc(n_bytes));
-    std::memcpy(evolved_grid, grid, n_bytes);
-
+static void GridEvolve(char *grid, char * temp, const int n_bytes, int *is_static) {
     // Update cell states in grid copy
     *is_static = 1;
     int idx = 0;
@@ -192,16 +189,16 @@ static char *GridEvolve(char *grid, const int n_bytes, int *is_static) {
             int idxj = idx + j;
             if (kStateChanges & (1 << grid[idxj])) {
                 if (grid[idxj] & 0x01) {
-                    GridSetDead(evolved_grid, idxj);
+                    GridSetDead(temp, idxj);
                 } else {
-                    GridSetLive(evolved_grid, idxj);
+                    GridSetLive(temp, idxj);
                 }
                 *is_static = 0;
             }
         }
     }
-    free(grid);
-    return evolved_grid;
+    // Update original grid from temporary grid
+    std::memcpy(grid, temp, n_bytes);
 }
 
 /**
@@ -316,13 +313,16 @@ int main(int argc, char *argv[]) {
         }
         std::cout << "for " << n_iter << " iterations... " << std::flush;
     }
+    // Populate grid neighbourhood sums
+    GridPrecalculate(grid);
+    // Allocate copy of grid to write intermediate evolved cell states
+    char *temp = static_cast<char *>(std::malloc(n_bytes));
     // Evolve the simulation the specified number of iterations or until
     // reaching a static state
-    GridPrecalculate(grid);
     int is_static = 0;
     if (!output) {
         for (int i = 0; i < n_iter; i++) {
-            grid = GridEvolve(grid, n_bytes, &is_static);
+            GridEvolve(grid, temp, n_bytes, &is_static);
             if (is_static) {
                 break;
             }
@@ -333,7 +333,7 @@ int main(int argc, char *argv[]) {
         std::FILE *fptr = std::fopen("game_of_life.out", "wb");
         for (int i = 0; i < n_iter; i++) {
             GridSerialize(fptr, grid);
-            grid = GridEvolve(grid, n_bytes, &is_static);
+            GridEvolve(grid, temp, n_bytes, &is_static);
             if (is_static) {
                 break;
             }
