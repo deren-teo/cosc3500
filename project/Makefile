@@ -1,5 +1,5 @@
 CXX=g++
-CXXFLAGS=-std=c++11 -Wall -pedantic
+CXXFLAGS=-std=c++11 -Wall -pedantic -lgomp -lm -ldl -mavx -fopenmp
 
 TARGETS = game_of_life
 

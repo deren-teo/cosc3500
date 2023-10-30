@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <vector>
 
 #include "parser.h"
 
@@ -172,33 +173,36 @@ static void GridSetLive(char *grid, int idx) {
  * If no cell states changed this iteration, sets the `is_static` flag to 1.
  *
  * @param grid Pointer to the memory allocated for the grid
- * @param temp Pointer to the memory allocated for another temporary grid
  * @param n_bytes Number of bytes allocated to the grid, including zero-padding
  * @param is_static Pointer to an external flag indicating whether grid has
  *      reached a static state or is still evolving
- *
- * @return Returns a pointer to the evolved grid.
 */
-static void GridEvolve(char *grid, char * temp, const int n_bytes, int *is_static) {
-    // Update cell states in grid copy
-    *is_static = 1;
+static void GridEvolve(char *grid, const int n_bytes, int *is_static) {
+    // Determine which cell states change in the next generation
+    std::vector<int> changed_idxs;
     int idx = 0;
     for (int i = 0; i < n_rows; i++) {
         idx += row_size;
-        for (int j = 1; j <= n_cols; j++) {
+        for (int j = 1; j < n_cols; j++) {
             int idxj = idx + j;
             if (kStateChanges & (1 << grid[idxj])) {
-                if (grid[idxj] & 0x01) {
-                    GridSetDead(temp, idxj);
-                } else {
-                    GridSetLive(temp, idxj);
-                }
-                *is_static = 0;
+                changed_idxs.push_back(idxj);
             }
         }
     }
-    // Update original grid from temporary grid
-    std::memcpy(grid, temp, n_bytes);
+    // If no cell states changed, set is_static to True and return early
+    if (changed_idxs.empty()) {
+        *is_static = 1;
+        return;
+    }
+    // Otherwise, go through and update cells which should change
+    for (std::vector<int>::iterator i = changed_idxs.begin(); i != changed_idxs.end(); ++i) {
+        if (grid[*i] & 0x01) {
+            GridSetDead(grid, *i);
+        } else {
+            GridSetLive(grid, *i);
+        }
+    }
 }
 
 /**
@@ -315,14 +319,12 @@ int main(int argc, char *argv[]) {
     }
     // Populate grid neighbourhood sums
     GridPrecalculate(grid);
-    // Allocate copy of grid to write intermediate evolved cell states
-    char *temp = static_cast<char *>(std::malloc(n_bytes));
     // Evolve the simulation the specified number of iterations or until
     // reaching a static state
     int is_static = 0;
     if (!output) {
         for (int i = 0; i < n_iter; i++) {
-            GridEvolve(grid, temp, n_bytes, &is_static);
+            GridEvolve(grid, n_bytes, &is_static);
             if (is_static) {
                 break;
             }
@@ -333,7 +335,7 @@ int main(int argc, char *argv[]) {
         std::FILE *fptr = std::fopen("game_of_life.out", "wb");
         for (int i = 0; i < n_iter; i++) {
             GridSerialize(fptr, grid);
-            GridEvolve(grid, temp, n_bytes, &is_static);
+            GridEvolve(grid, n_bytes, &is_static);
             if (is_static) {
                 break;
             }
