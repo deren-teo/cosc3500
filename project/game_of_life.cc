@@ -196,11 +196,13 @@ static void GridEvolve(char *grid, const int n_bytes, int *is_static) {
         return;
     }
     // Otherwise, go through and update cells which should change
-    for (std::vector<int>::iterator i = changed_idxs.begin(); i != changed_idxs.end(); ++i) {
-        if (grid[*i] & 0x01) {
-            GridSetDead(grid, *i);
+    const int v_end = changed_idxs.size();
+    for (int i = 0; i < v_end; i++) {
+        idx = changed_idxs[i];
+        if (grid[idx] & 0x01) {
+            GridSetDead(grid, idx);
         } else {
-            GridSetLive(grid, *i);
+            GridSetLive(grid, idx);
         }
     }
 }
