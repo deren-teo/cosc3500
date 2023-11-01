@@ -7,8 +7,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
-#include <vector>
 
+#include "gridEvolve.h"
 #include "parser.h"
 
 int fp_argidx = 0;  // argv idx of optional pattern file argument
@@ -19,11 +19,6 @@ int row_size  = 0;  // zero-padded row size; i.e. n_cols + 2
 
 int n_rows = 0; // number of rows in the grid, not including zero-padding
 int n_cols = 0; // number of columns in the grid, not including zero-padding
-
-// Given a byte representing a cell state and neighbour sum in the form:
-//     <3 bits: unused><4 bits: neighbour sum><1 bit: state>
-// kStateChanges maps the byte to 1 if the state will change, else 0
-const int kStateChanges = 0x2AA4A; // bin: 101010101001001010
 
 /**
  * Allocates memory for a 2D grid on which Life will evolve. Each cell is
@@ -129,80 +124,6 @@ static void GridPrecalculate(char *grid) {
             sum += grid[idx_blw] & 0x01;
             sum += grid[idx_blw + 1] & 0x01;
             grid[idx_j] |= sum << 1;
-        }
-    }
-}
-
-/**
- * Sets the cell with the given index to the dead state and decrements the
- * neighbour sum count of all surrounding cells.
- *
- * @param grid Pointer to the memory allocated for the grid
- * @param idx Index of the cell whose state to change
-*/
-static void GridSetDead(char *grid, int idx) {
-    int idx_abv = idx - row_size;
-    int idx_blw = idx + row_size;
-    grid[idx_abv - 1] -= 2;
-    grid[idx_abv]     -= 2;
-    grid[idx_abv + 1] -= 2;
-    grid[idx - 1]     -= 2;
-    grid[idx]         &= 0xFE;
-    grid[idx + 1]     -= 2;
-    grid[idx_blw - 1] -= 2;
-    grid[idx_blw]     -= 2;
-    grid[idx_blw + 1] -= 2;
-}
-
-static void GridSetLive(char *grid, int idx) {
-    int idx_abv = idx - row_size;
-    int idx_blw = idx + row_size;
-    grid[idx_abv - 1] += 2;
-    grid[idx_abv]     += 2;
-    grid[idx_abv + 1] += 2;
-    grid[idx - 1]     += 2;
-    grid[idx]         |= 0x01;
-    grid[idx + 1]     += 2;
-    grid[idx_blw - 1] += 2;
-    grid[idx_blw]     += 2;
-    grid[idx_blw + 1] += 2;
-}
-
-/**
- * Updates the grid one timestep forward based on the standard rules of Life.
- * If no cell states changed this iteration, sets the `is_static` flag to 1.
- *
- * @param grid Pointer to the memory allocated for the grid
- * @param n_bytes Number of bytes allocated to the grid, including zero-padding
- * @param is_static Pointer to an external flag indicating whether grid has
- *      reached a static state or is still evolving
-*/
-static void GridEvolve(char *grid, const int n_bytes, int *is_static) {
-    // Determine which cell states change in the next generation
-    std::vector<int> changed_idxs;
-    int idx = 0;
-    for (int i = 0; i < n_rows; i++) {
-        idx += row_size;
-        for (int j = 1; j < n_cols; j++) {
-            int idxj = idx + j;
-            if (kStateChanges & (1 << grid[idxj])) {
-                changed_idxs.push_back(idxj);
-            }
-        }
-    }
-    // If no cell states changed, set is_static to True and return early
-    if (changed_idxs.empty()) {
-        *is_static = 1;
-        return;
-    }
-    // Otherwise, go through and update cells which should change
-    const int v_end = changed_idxs.size();
-    for (int i = 0; i < v_end; i++) {
-        idx = changed_idxs[i];
-        if (grid[idx] & 0x01) {
-            GridSetDead(grid, idx);
-        } else {
-            GridSetLive(grid, idx);
         }
     }
 }
@@ -326,7 +247,7 @@ int main(int argc, char *argv[]) {
     int is_static = 0;
     if (!output) {
         for (int i = 0; i < n_iter; i++) {
-            GridEvolve(grid, n_bytes, &is_static);
+            gridEvolve(grid, n_rows, n_cols, &is_static);
             if (is_static) {
                 break;
             }
@@ -337,7 +258,7 @@ int main(int argc, char *argv[]) {
         std::FILE *fptr = std::fopen("game_of_life.out", "wb");
         for (int i = 0; i < n_iter; i++) {
             GridSerialize(fptr, grid);
-            GridEvolve(grid, n_bytes, &is_static);
+            gridEvolve(grid, n_rows, n_cols, &is_static);
             if (is_static) {
                 break;
             }
