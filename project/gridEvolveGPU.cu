@@ -22,18 +22,41 @@ __host__ void gridEvolve_GPU(char *grid, char *temp, const int nRows, const int 
 {
     // NOTE: main script handles all cudaMemcpy'ing (before, during and after)
 
-    // // Initially set isStatic as true so any thread can set it false
-    // *isStatic = 1;
-
     // NOTE: nCols and nRows must both be a multiple of BLOCKTILE
     dim3 numBlocks(nCols / BLOCKTILE, nRows / BLOCKTILE);
     dim3 threadsPerBlock(BLOCKTILE * BLOCKTILE / (THREADTILE * THREADTILE));
-    gridEvolveKernel_GPU<<<numBlocks, threadsPerBlock>>>(grid, temp, nRows, nCols, isStatic);
+
+    // Allocate an array for each block to report "isStatic" status
+    const int totalBlocks = numBlocks.x * numBlocks.y;
+    char *gridStatic_GPU;
+    cudaCheck(cudaMalloc((void **)&gridStatic_GPU, totalBlocks));
+
+    // Execute kernel
+    gridEvolveKernel_GPU<<<numBlocks, threadsPerBlock>>>(grid, temp, nRows, nCols, gridStatic_GPU);
+
+    // Loop over all blocks to update overall "isStatic", returning early if possible
+    char *gridStatic = (char *)std::malloc(totalBlocks);
+    cudaCheck(cudaMemcpy(gridStatic, gridStatic_GPU, totalBlocks, cudaMemcpyDeviceToHost));
+    *isStatic = 1;
+    for (int i = 0; i < totalBlocks; i++)
+    {
+        if (!gridStatic[i])
+        {
+            *isStatic = 0;
+            return;
+        }
+    }
 }
 
-__global__ void gridEvolveKernel_GPU(char *grid, char *temp, const int nRows, const int nCols, char *isStatic)
+__global__ void gridEvolveKernel_GPU(char *grid, char *temp, const int nRows, const int nCols, char *gridStatic)
 {
+    // Row size, accounting for grid zero-padding
     const int rowSize = nCols + 2;
+
+    // Shared memory to store "isStatic" result for each thread in this block
+    __shared__ char blockStatic[THREADTILE * THREADTILE];
+    // Each thread initialises its own entry to 1
+    blockStatic[threadIdx.x] = 1;
 
     // Indices of current thread within its block
     const int threadRow = threadIdx.x / (BLOCKTILE / THREADTILE);
@@ -45,9 +68,6 @@ __global__ void gridEvolveKernel_GPU(char *grid, char *temp, const int nRows, co
                               (blockIdx.x * BLOCKTILE) + rowSize + 1;
     grid += blockStartIdx;
     temp += blockStartIdx;
-
-    // // Define local equivalent to avoid unnecessary global memory accesses
-    // char locallyStatic = 1;
 
     // Thread to address cells that it is responsible for
     for (int row = 0; row < THREADTILE; row++)
@@ -81,15 +101,22 @@ __global__ void gridEvolveKernel_GPU(char *grid, char *temp, const int nRows, co
             if (TRANSITION_MAP & (1 << ((neighbourSum << 1) | state)))
             {
                 temp[idx] = !state;
-                // locallyStatic = 0;
+                blockStatic[threadIdx.x] = 0;
             }
         }
     }
 
-    // // Update grid static status (multiple threads trying to write doesn't
-    // // matter as long as at least one manages to write)
-    // if (!locallyStatic)
-    // {
-    //     *isStatic = 0;
-    // }
+    // Reduction over shared memory to determine block "isStatic" status
+    for (int i = blockDim.x / 2; i > 0; i /= 2)
+    {
+        __syncthreads();
+        if (threadIdx.x < i)
+        {
+            blockStatic[threadIdx.x] &= blockStatic[threadIdx.x + i];
+        }
+    }
+    if (threadIdx.x == 0)
+    {
+        gridStatic[blockIdx.x * blockDim.x + blockIdx.y] = blockStatic[0];
+    }
 }

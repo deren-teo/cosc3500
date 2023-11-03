@@ -263,18 +263,14 @@ int main(int argc, char *argv[]) {
     cudaCheck(cudaMemcpy(grid_GPU, grid, n_bytes, cudaMemcpyHostToDevice));
     cudaCheck(cudaMemcpy(temp_GPU, grid, n_bytes, cudaMemcpyHostToDevice));
 
-    // Maintain grid static status on host and device
+    // Maintain overall grid static status (on host)
     char isStatic = 0;
-    char *isStatic_GPU;
-    cudaCheck(cudaMalloc((void **)&isStatic_GPU, 1));
-    cudaCheck(cudaMemcpy(isStatic_GPU, &isStatic, 1, cudaMemcpyHostToDevice));
 
     // Evolve the simulation the specified number of iterations or until
     // reaching a static state
     if (!output) {
         for (int i = 0; i < n_iter; i++) {
-            gridEvolve_GPU(grid_GPU, temp_GPU, n_rows, n_cols, isStatic_GPU);
-            cudaCheck(cudaMemcpy(&isStatic, isStatic_GPU, 1, cudaMemcpyDeviceToHost));
+            gridEvolve_GPU(grid_GPU, temp_GPU, n_rows, n_cols, &isStatic);
             if (isStatic) {
                 break;
             }
@@ -286,8 +282,7 @@ int main(int argc, char *argv[]) {
         std::FILE *fptr = std::fopen("game_of_life.out", "wb");
         for (int i = 0; i < n_iter; i++) {
             GridSerialize(fptr, grid);
-            gridEvolve_GPU(grid_GPU, temp_GPU, n_rows, n_cols, isStatic_GPU);
-            cudaCheck(cudaMemcpy(&isStatic, isStatic_GPU, 1, cudaMemcpyDeviceToHost));
+            gridEvolve_GPU(grid_GPU, temp_GPU, n_rows, n_cols, &isStatic);
             if (isStatic) {
                 break;
             }

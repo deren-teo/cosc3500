@@ -18,19 +18,19 @@ do
     make clean
     make game_of_life OFLAG='-O'$i
 
-    # Grid size: 100x100
-    time ./game_of_life -i 1000 --seed 1 -s 100x100 -v
-    time ./game_of_life -i 1000 --seed 2 -s 100x100 -v
-    time ./game_of_life -i 1000 --seed 42 -s 100x100 -v
+    # Grid size: 128x128
+    time ./game_of_life -i 1000 --seed 1 -s 128x128 -v
+    time ./game_of_life -i 1000 --seed 2 -s 128x128 -v
+    time ./game_of_life -i 1000 --seed 42 -s 128x128 -v
 
-    # Grid size: 1000x1000
-    time ./game_of_life -i 1000 --seed 1 -s 1000x1000 -v
-    time ./game_of_life -i 1000 --seed 2 -s 1000x1000 -v
-    time ./game_of_life -i 1000 --seed 42 -s 1000x1000 -v
+    # Grid size: 1024x1024
+    time ./game_of_life -i 1000 --seed 1 -s 1024x1024 -v
+    time ./game_of_life -i 1000 --seed 2 -s 1024x1024 -v
+    time ./game_of_life -i 1000 --seed 42 -s 1024x1024 -v
 
-    # Grid size: 2000x2000
-    time ./game_of_life -i 1000 --seed 1 -s 2000x2000 -v
-    time ./game_of_life -i 1000 --seed 2 -s 2000x2000 -v
-    time ./game_of_life -i 1000 --seed 42 -s 2000x2000 -v
+    # Grid size: 2048x2048
+    time ./game_of_life -i 1000 --seed 1 -s 2048x2048 -v
+    time ./game_of_life -i 1000 --seed 2 -s 2048x2048 -v
+    time ./game_of_life -i 1000 --seed 42 -s 2048x2048 -v
 
 done
