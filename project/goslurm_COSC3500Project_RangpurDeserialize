@@ -1,0 +1,9 @@
+#!/bin/bash
+#SBATCH --job-name=COSC3500_Deserialize
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=1
+#SBATCH --time=0-00:10:00
+
+python3 deserializer.py game_of_life.out 120 120 > game_of_life.txt

@@ -1,8 +1,5 @@
-CUDA_INC = /opt/local/stow/cuda-11.1/include
-CUDA_LIB = /opt/local/stow/cuda-11.1/lib64
-
 CXX=g++
-CXXFLAGS=-std=c++11 -Wall -pedantic -mavx -fopenmp -I$(CUDA_INC)
+CXXFLAGS=-std=c++11 -Wall -pedantic -mavx -fopenmp
 NVCC=nvcc
 NVFLAGS=--gpu-architecture=sm_35 -Wno-deprecated-gpu-targets
 
@@ -12,7 +9,7 @@ default : all
 
 $(TARGETS) : gridEvolve.h gridEvolve.o gridEvolveGPU.cuh gridEvolveGPU.o parser.h parser.o
 
-LIBS_game_of_life = -lgomp -lm -ldl -L$(CUDA_LIB) -lcudart
+LIBS_game_of_life = -lgomp -lm -ldl -lcudart
 
 CXXFLAGS_game_of_life =
 

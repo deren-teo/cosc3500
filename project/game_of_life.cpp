@@ -1,5 +1,5 @@
 /*******************************************************************************
- * @file    main.cc
+ * @file    main.cpp
  * @author  Deren Teo
  * @brief   An optimised implementation of Conway's Game of Life (abbr. Life).
  ******************************************************************************/
@@ -8,8 +8,17 @@
 #include <cstring>
 #include <iostream>
 
-#include "gridEvolve.h"
+#include "gridEvolveGPU.cuh"
 #include "parser.h"
+
+#define cudaCheck(expr) \
+    do { \
+        cudaError_t e = (expr); \
+        if (e != cudaSuccess) { \
+            fprintf(stderr, "CUDA error: %s (%s:%d)\n", cudaGetErrorString(e), __FILE__, __LINE__); \
+            abort(); \
+        } \
+    } while (false)
 
 int fp_argidx = 0;  // argv idx of optional pattern file argument
 int n_iter    = 99; // maximum number of iterations to simulate
@@ -211,6 +220,7 @@ int main(int argc, char *argv[]) {
     if (ParseCmdline(argc, argv)) {
         return 1;
     }
+
     // Create and initialise the grid (latter either randomly or with a pattern)
     char *grid;
     int n_bytes; // number of bytes allocated to the grid, including zero-padding
@@ -230,6 +240,7 @@ int main(int argc, char *argv[]) {
         row_size = n_cols + 2;
         n_bytes = (n_rows + 2) * row_size;
     }
+
     // If verbose flag specified on the command line, print runtime config
     if (verbose) {
         std::cout << "Simulating Life on a " << n_rows << "x" << n_cols << " grid ";
@@ -240,17 +251,34 @@ int main(int argc, char *argv[]) {
         }
         std::cout << "for " << n_iter << " iterations... " << std::flush;
     }
+
     // Populate grid neighbourhood sums
     GridPrecalculate(grid);
+
+    // GPU memory allocation
+    char *grid_GPU;
+    char *temp_GPU;
+    cudaCheck(cudaMalloc((void **)&grid_GPU, n_bytes));
+    cudaCheck(cudaMalloc((void **)&temp_GPU, n_bytes));
+    cudaCheck(cudaMemcpy(grid_GPU, grid, n_bytes, cudaMemcpyHostToDevice));
+    cudaCheck(cudaMemcpy(temp_GPU, grid, n_bytes, cudaMemcpyHostToDevice));
+
+    // Maintain grid static status on host and device
+    char isStatic = 0;
+    char *isStatic_GPU;
+    cudaCheck(cudaMalloc((void **)&isStatic_GPU, 1));
+    cudaCheck(cudaMemcpy(isStatic_GPU, &isStatic, 1, cudaMemcpyHostToDevice));
+
     // Evolve the simulation the specified number of iterations or until
     // reaching a static state
-    int is_static = 0;
     if (!output) {
         for (int i = 0; i < n_iter; i++) {
-            gridEvolve(grid, n_rows, n_cols, &is_static);
-            if (is_static) {
+            gridEvolve_GPU(grid_GPU, temp_GPU, n_rows, n_cols, isStatic_GPU);
+            cudaCheck(cudaMemcpy(&isStatic, isStatic_GPU, 1, cudaMemcpyDeviceToHost));
+            if (isStatic) {
                 break;
             }
+            cudaCheck(cudaMemcpy(grid_GPU, temp_GPU, n_bytes, cudaMemcpyDeviceToDevice));
         }
     // If output flag specified on the command line, then every iteration the
     // grid is written as raw binary to "game_of_life.out"
@@ -258,10 +286,13 @@ int main(int argc, char *argv[]) {
         std::FILE *fptr = std::fopen("game_of_life.out", "wb");
         for (int i = 0; i < n_iter; i++) {
             GridSerialize(fptr, grid);
-            gridEvolve(grid, n_rows, n_cols, &is_static);
-            if (is_static) {
+            gridEvolve_GPU(grid_GPU, temp_GPU, n_rows, n_cols, isStatic_GPU);
+            cudaCheck(cudaMemcpy(&isStatic, isStatic_GPU, 1, cudaMemcpyDeviceToHost));
+            if (isStatic) {
                 break;
             }
+            cudaCheck(cudaMemcpy(grid_GPU, temp_GPU, n_bytes, cudaMemcpyDeviceToDevice));
+            cudaCheck(cudaMemcpy(grid, temp_GPU, n_bytes, cudaMemcpyDeviceToHost));
         }
         GridSerialize(fptr, grid);
         std::fclose(fptr);
@@ -269,7 +300,9 @@ int main(int argc, char *argv[]) {
     if (verbose) {
         std::cout << "(Done)\n";
     }
+
     // Clean up and exit
     free(grid);
-    return 0;
+    cudaFree(grid_GPU);
+    cudaFree(temp_GPU);
 }

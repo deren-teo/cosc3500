@@ -1,0 +1,43 @@
+#!/bin/bash
+#SBATCH --job-name=COSC3500_Benchmark
+#SBATCH --partition=a100
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=1
+#SBATCH --gres=gpu:1
+#SBATCH --time=0-00:05:00
+
+module load compiler-rt/latest
+module load cuda/11.1
+
+export PATH=/opt/local/stow/cuda-11.1/bin:$PATH
+
+# DEBUG: start
+make clean
+make game_of_life
+
+time ./game_of_life -f patterns/rpentomino.rle -i 1103 -s 120x120 -o
+# DEBUG: end
+
+# for i in 0 1 2 3
+# do
+#     make clean
+#     make game_of_life OFLAG='-O'$i
+
+#     # Grid size: 100x100
+#     time ./game_of_life -i 1000 --seed 1 -s 100x100 -v
+#     time ./game_of_life -i 1000 --seed 2 -s 100x100 -v
+#     time ./game_of_life -i 1000 --seed 42 -s 100x100 -v
+
+#     # Grid size: 1000x1000
+#     time ./game_of_life -i 1000 --seed 1 -s 1000x1000 -v
+#     time ./game_of_life -i 1000 --seed 2 -s 1000x1000 -v
+#     time ./game_of_life -i 1000 --seed 42 -s 1000x1000 -v
+
+#     # Grid size: 2000x2000
+#     time ./game_of_life -i 1000 --seed 1 -s 2000x2000 -v
+#     time ./game_of_life -i 1000 --seed 2 -s 2000x2000 -v
+#     time ./game_of_life -i 1000 --seed 42 -s 2000x2000 -v
+
+# done

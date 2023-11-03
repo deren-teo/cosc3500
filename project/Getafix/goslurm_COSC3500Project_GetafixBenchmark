@@ -1,22 +1,19 @@
 #!/bin/bash
 #SBATCH --job-name=COSC3500_Benchmark
-#SBATCH --partition=cosc
+#SBATCH --partition=gpu
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=1G
+#SBATCH --gres=gpu:1
 #SBATCH --time=0-00:05:00
+
+module add compilers/cuda/10.0
 
 for i in 0 1 2 3
 do
     make clean
-    make game_of_life OFLAG='-O'$i
-
-    # Grid size: 10x10
-    time ./game_of_life -i 1000 --seed 1 -s 10x10 -v
-    time ./game_of_life -i 1000 --seed 2 -s 10x10 -v
-    time ./game_of_life -i 1000 --seed 42 -s 10x10 -v
+    make OFLAG='-O'$i
 
     # Grid size: 100x100
     time ./game_of_life -i 1000 --seed 1 -s 100x100 -v
@@ -27,5 +24,10 @@ do
     time ./game_of_life -i 1000 --seed 1 -s 1000x1000 -v
     time ./game_of_life -i 1000 --seed 2 -s 1000x1000 -v
     time ./game_of_life -i 1000 --seed 42 -s 1000x1000 -v
+
+    # Grid size: 2000x2000
+    time ./game_of_life -i 1000 --seed 1 -s 2000x2000 -v
+    time ./game_of_life -i 1000 --seed 2 -s 2000x2000 -v
+    time ./game_of_life -i 1000 --seed 42 -s 2000x2000 -v
 
 done
