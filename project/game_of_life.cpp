@@ -61,81 +61,81 @@ static void GridRandomInit(char *grid) {
     }
 }
 
-/**
- * Pre-calculates the neighbourhood sums of all cells before first evolution.
- * Assumes the grid is zero-padded on each side. Calculates these sums too,
- * to avoid underflow errors during evolution.
- *
- * @param grid Pointer to the memory allocated for the grid
-*/
-static void GridPrecalculate(char *grid) {
-    // Corner indices of zero-padding
-    // NOTE: top-left corner is just index 0
-    int tr = row_size - 1;
-    int bl = (n_cols + 1) * row_size;
-    int br = (n_cols + 2) * row_size - 1;
-    // Top left corner
-    grid[0] = (grid[row_size + 1] & 0x01) << 1;
-    // Top right corner
-    grid[tr] = (grid[row_size + row_size - 2] & 0x01) << 1;
-    // Botton left corner
-    grid[bl] = (grid[n_cols * row_size + 1] & 0x01) << 1;
-    // Botton right corner
-    grid[br] = (grid[(n_cols + 1) * row_size - 2] & 0x01) << 1;
-    // Top edge, except corners
-    int sum = 0;
-    for (int j = 1; j < tr; j++) {
-        int j_blw = j + row_size;
-        sum =  grid[j_blw - 1] & 0x01;
-        sum += grid[j_blw] & 0x01;
-        sum += grid[j_blw + 1] & 0x01;
-        grid[j] |= sum << 1;
-    }
-    // Bottom edge, except corners
-    for (int j = bl + 1; j < br; j++) {
-        int j_abv = j - row_size;
-        sum =  grid[j_abv - 1] & 0x01;
-        sum += grid[j_abv] & 0x01;
-        sum += grid[j_abv + 1] & 0x01;
-        grid[j] |= sum << 1;
-    }
-    // Left edge, except corners
-    for (int i = row_size; i < bl; i += row_size) {
-        int i_rgt = i + 1;
-        sum =  grid[i_rgt - row_size] & 0x01;
-        sum += grid[i_rgt] & 0x01;
-        sum += grid[i_rgt + row_size] & 0x01;
-        grid[i] |= sum << 1;
-    }
-    // Right edge, except corners
-    for (int i = tr + row_size; i < br; i += row_size) {
-        int i_lft = i - 1;
-        sum =  grid[i_lft - row_size] & 0x01;
-        sum += grid[i_lft] & 0x01;
-        sum += grid[i_lft + row_size] & 0x01;
-        grid[i] |= sum << 1;
-    }
-    // Rest of the grid
-    int idx = 0;
-    for (int i = 0; i < n_rows; i++) {
-        idx += row_size;
-        for (int j = 1; j <= n_cols; j++) {
-            int idx_j = idx + j;
-            int idx_abv = idx_j - row_size;
-            int idx_blw = idx_j + row_size;
-            sum =  grid[idx_abv - 1] & 0x01;
-            sum += grid[idx_abv] & 0x01;
-            sum += grid[idx_abv + 1] & 0x01;
-            sum += grid[idx_j - 1] & 0x01;
-            // NOTE: a cell is not included in its own neighbour count
-            sum += grid[idx_j + 1] & 0x01;
-            sum += grid[idx_blw - 1] & 0x01;
-            sum += grid[idx_blw] & 0x01;
-            sum += grid[idx_blw + 1] & 0x01;
-            grid[idx_j] |= sum << 1;
-        }
-    }
-}
+// /**
+//  * Pre-calculates the neighbourhood sums of all cells before first evolution.
+//  * Assumes the grid is zero-padded on each side. Calculates these sums too,
+//  * to avoid underflow errors during evolution.
+//  *
+//  * @param grid Pointer to the memory allocated for the grid
+// */
+// static void GridPrecalculate(char *grid) {
+//     // Corner indices of zero-padding
+//     // NOTE: top-left corner is just index 0
+//     int tr = row_size - 1;
+//     int bl = (n_cols + 1) * row_size;
+//     int br = (n_cols + 2) * row_size - 1;
+//     // Top left corner
+//     grid[0] = (grid[row_size + 1] & 0x01) << 1;
+//     // Top right corner
+//     grid[tr] = (grid[row_size + row_size - 2] & 0x01) << 1;
+//     // Botton left corner
+//     grid[bl] = (grid[n_cols * row_size + 1] & 0x01) << 1;
+//     // Botton right corner
+//     grid[br] = (grid[(n_cols + 1) * row_size - 2] & 0x01) << 1;
+//     // Top edge, except corners
+//     int sum = 0;
+//     for (int j = 1; j < tr; j++) {
+//         int j_blw = j + row_size;
+//         sum =  grid[j_blw - 1] & 0x01;
+//         sum += grid[j_blw] & 0x01;
+//         sum += grid[j_blw + 1] & 0x01;
+//         grid[j] |= sum << 1;
+//     }
+//     // Bottom edge, except corners
+//     for (int j = bl + 1; j < br; j++) {
+//         int j_abv = j - row_size;
+//         sum =  grid[j_abv - 1] & 0x01;
+//         sum += grid[j_abv] & 0x01;
+//         sum += grid[j_abv + 1] & 0x01;
+//         grid[j] |= sum << 1;
+//     }
+//     // Left edge, except corners
+//     for (int i = row_size; i < bl; i += row_size) {
+//         int i_rgt = i + 1;
+//         sum =  grid[i_rgt - row_size] & 0x01;
+//         sum += grid[i_rgt] & 0x01;
+//         sum += grid[i_rgt + row_size] & 0x01;
+//         grid[i] |= sum << 1;
+//     }
+//     // Right edge, except corners
+//     for (int i = tr + row_size; i < br; i += row_size) {
+//         int i_lft = i - 1;
+//         sum =  grid[i_lft - row_size] & 0x01;
+//         sum += grid[i_lft] & 0x01;
+//         sum += grid[i_lft + row_size] & 0x01;
+//         grid[i] |= sum << 1;
+//     }
+//     // Rest of the grid
+//     int idx = 0;
+//     for (int i = 0; i < n_rows; i++) {
+//         idx += row_size;
+//         for (int j = 1; j <= n_cols; j++) {
+//             int idx_j = idx + j;
+//             int idx_abv = idx_j - row_size;
+//             int idx_blw = idx_j + row_size;
+//             sum =  grid[idx_abv - 1] & 0x01;
+//             sum += grid[idx_abv] & 0x01;
+//             sum += grid[idx_abv + 1] & 0x01;
+//             sum += grid[idx_j - 1] & 0x01;
+//             // NOTE: a cell is not included in its own neighbour count
+//             sum += grid[idx_j + 1] & 0x01;
+//             sum += grid[idx_blw - 1] & 0x01;
+//             sum += grid[idx_blw] & 0x01;
+//             sum += grid[idx_blw + 1] & 0x01;
+//             grid[idx_j] |= sum << 1;
+//         }
+//     }
+// }
 
 /**
  * Dumps the given grid to the given file pointer, not including zero-padding.
@@ -252,8 +252,8 @@ int main(int argc, char *argv[]) {
         std::cout << "for " << n_iter << " iterations... " << std::flush;
     }
 
-    // Populate grid neighbourhood sums
-    GridPrecalculate(grid);
+    // // Populate grid neighbourhood sums (not needed for GPU kernel)
+    // GridPrecalculate(grid);
 
     // GPU memory allocation
     char *grid_GPU;

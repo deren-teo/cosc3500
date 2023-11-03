@@ -17,7 +17,7 @@ make clean
 make OFLAG='-O3'
 
 # Generate binary output
-./game_of_life -f patterns/rpentomino.rle -i 1103 -s 120x120 -o
+./game_of_life -f patterns/rpentomino.rle -i 1103 -s 128x128 -o
 
 # Deserialize binary output
-python3 deserializer.py game_of_life.out 120 120 > game_of_life.txt
+python3 deserializer.py game_of_life.out 128 128 > game_of_life.txt
