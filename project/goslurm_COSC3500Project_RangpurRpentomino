@@ -1,0 +1,19 @@
+#!/bin/bash
+#SBATCH --job-name=COSC3500_Rpentomino
+#SBATCH --partition=a100
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=1
+#SBATCH --gres=gpu:1
+#SBATCH --time=0-00:05:00
+
+module load compiler-rt/latest
+module load cuda/11.1
+
+export PATH=/opt/local/stow/cuda-11.1/bin:$PATH
+
+make clean
+make game_of_life
+
+./game_of_life -f patterns/rpentomino.rle -i 1103 -s 120x120 -o
