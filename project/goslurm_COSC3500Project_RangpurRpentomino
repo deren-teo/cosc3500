@@ -14,6 +14,10 @@ module load cuda/11.1
 export PATH=/opt/local/stow/cuda-11.1/bin:$PATH
 
 make clean
-make game_of_life
+make OFLAG='-O3'
 
+# Generate binary output
 ./game_of_life -f patterns/rpentomino.rle -i 1103 -s 120x120 -o
+
+# Deserialize binary output
+python3 deserializer.py game_of_life.out 120 120 > game_of_life.txt
