@@ -1,0 +1,26 @@
+#!/bin/bash
+#SBATCH --job-name=COSC3500_Benchmark
+#SBATCH --partition=a100
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=1
+#SBATCH --gres=gpu:1
+#SBATCH --time=0-00:05:00
+
+module load compiler-rt/latest
+module load cuda/11.1
+
+export PATH=/opt/local/stow/cuda-11.1/bin:$PATH
+
+make clean
+make OFLAG='-O0'
+
+# Burn-in trials (CUDA takes time to reach full performance after rebuild)
+for j in {0..2}
+do
+    echo "Burn-in trial "$j
+    ./game_of_life -i 1000 --seed 1 -s 128x128
+done
+
+nsys profile -o noprefetch --stats=true ./game_of_life -i 1000 --seed 1 -s 2048x2048
