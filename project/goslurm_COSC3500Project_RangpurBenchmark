@@ -16,7 +16,7 @@ export PATH=/opt/local/stow/cuda-11.1/bin:$PATH
 for i in 0 1 2 3
 do
     make clean
-    make game_of_life OFLAG='-O'$i
+    make OFLAG='-O'$i
 
     # Grid size: 128x128
     time ./game_of_life -i 1000 --seed 1 -s 128x128 -v
