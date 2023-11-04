@@ -18,6 +18,13 @@ do
     make clean
     make OFLAG='-O'$i
 
+    # Burn-in trials (CUDA takes time to reach full performance after rebuild)
+    for j in {0..2}
+    do
+        echo "Burn-in trial "$j
+        ./game_of_life -i 1000 --seed 1 -s 128x128
+    done
+
     # Grid size: 128x128
     time ./game_of_life -i 1000 --seed 1 -s 128x128 -v
     time ./game_of_life -i 1000 --seed 2 -s 128x128 -v

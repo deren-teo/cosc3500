@@ -69,91 +69,45 @@ __global__ void gridEvolveKernel_GPU(char *grid, char *temp, const int nRows, co
     grid += blockStartIdx;
     temp += blockStartIdx;
 
-    // Allocate shared memory for all cells to be addressed by this block
-    __shared__ char blockGrid[BLOCKTILE + 2][BLOCKTILE + 2];
+    // Allocate thread-local memory for all cells to be addressed by this thread
+    char threadGrid[THREADTILE + 2][THREADTILE + 2];
 
-    // Each thread to cache its own cells into shared memory (other threads
-    // get benefit where accessing neighbours outside their group of cells)
-    for (int row = 1; row <= THREADTILE; row++)
+    // Each thread to cache its own cells into thread-local registers
+    for (int row = -1; row < THREADTILE + 1; row++)
     {
-        for (int col = 1; col <= THREADTILE; col++)
+        for (int col = -1; col < THREADTILE + 1; col++)
         {
-            const int idx = (threadRow * THREADTILE + row - 1) * rowSize +
-                             threadCol * THREADTILE + col - 1;
-            blockGrid[threadRow * THREADTILE + row][threadCol * THREADTILE + col] = grid[idx];
+            const int gridIdx = (threadRow * THREADTILE + row) * rowSize +
+                                (threadCol * THREADTILE + col);
+            threadGrid[row + 1][col + 1] = grid[gridIdx];
         }
     }
-    // Allocate caching of zero-padding to subset of threads
-    if (threadIdx.x < blockDim.x / 4)
-    {
-        // Handle top row of padding, including top left but not top right
-        int padIdx = threadIdx.x;
-        while (padIdx < BLOCKTILE + 1)
-        {
-            blockGrid[0][padIdx] = grid[padIdx - rowSize - 1];
-            padIdx += blockDim.x / 4;
-        }
-    }
-    else if (threadIdx.x < blockDim.x / 2)
-    {
-        // Handle bottom row of padding, including bottom right but not bottom left
-        int padIdx = threadIdx.x - blockDim.x / 4;
-        while (padIdx < BLOCKTILE + 1)
-        {
-            blockGrid[BLOCKTILE + 1][padIdx + 1] = grid[padIdx + BLOCKTILE * rowSize];
-            padIdx += blockDim.x / 4;
-        }
-    }
-    else if (threadIdx.x < 3 * blockDim.x / 4)
-    {
-        // Handle left column of padding, including bottom left but not top left
-        int padIdx = threadIdx.x - blockDim.x / 2;
-        while (padIdx < BLOCKTILE + 1)
-        {
-            blockGrid[padIdx + 1][0] = grid[padIdx * rowSize - 1];
-            padIdx += blockDim.x / 4;
-        }
-    }
-    else
-    {
-        // Handle right column of padding, including top right but not bottom right
-        int padIdx = threadIdx.x - 3 * blockDim.x / 4;
-        while (padIdx < BLOCKTILE + 1)
-        {
-            blockGrid[padIdx][BLOCKTILE + 1] = grid[(padIdx - 1) * rowSize + BLOCKTILE];
-            padIdx += blockDim.x / 4;
-        }
-    }
-    __syncthreads();
+    // NOTE: no thread synchronisation needed as grid is not modified until
+    //  after the kernel returns
 
     // Each thread to update state of cells that it is responsible for
-    for (int row = 1; row <= THREADTILE; row++)
+    for (int row = 1; row < THREADTILE + 1; row++)
     {
-        for (int col = 1; col <= THREADTILE; col++)
+        for (int col = 1; col < THREADTILE + 1; col++)
         {
-            const int smemRow = threadRow * THREADTILE + row;
-            const int smemCol = threadCol * THREADTILE + col;
-            // Determine neighbourhood sum
+            // Determine neigbourhood sum
             char neighbourSum = 0;
-            neighbourSum += blockGrid[smemRow - 1][smemCol - 1];
-            neighbourSum += blockGrid[smemRow - 1][smemCol];
-            neighbourSum += blockGrid[smemRow - 1][smemCol + 1];
-            neighbourSum += blockGrid[smemRow][smemCol - 1];
-            neighbourSum += blockGrid[smemRow][smemCol + 1];
-            neighbourSum += blockGrid[smemRow + 1][smemCol - 1];
-            neighbourSum += blockGrid[smemRow + 1][smemCol];
-            neighbourSum += blockGrid[smemRow + 1][smemCol + 1];
-
-            // TODO: optimise by loading all cells that need to be checked
-            //  (i.e. 6x6 bytes) into cache
+            neighbourSum += threadGrid[row - 1][col - 1];
+            neighbourSum += threadGrid[row - 1][col];
+            neighbourSum += threadGrid[row - 1][col + 1];
+            neighbourSum += threadGrid[row][col - 1];
+            neighbourSum += threadGrid[row][col + 1];
+            neighbourSum += threadGrid[row + 1][col - 1];
+            neighbourSum += threadGrid[row + 1][col];
+            neighbourSum += threadGrid[row + 1][col + 1];
 
             // Lookup if state changes
-            const int state = blockGrid[smemRow][smemCol];
+            const int state = threadGrid[row][col];
             if (TRANSITION_MAP & (1 << ((neighbourSum << 1) | state)))
             {
-                const int idx = (threadRow * THREADTILE + row - 1) * rowSize +
-                                 threadCol * THREADTILE + col - 1;
-                temp[idx] = !state;
+                const int gridIdx = (threadRow * THREADTILE + row - 1) * rowSize +
+                                    (threadCol * THREADTILE + col - 1);
+                temp[gridIdx] = !state;
                 blockStatic[threadIdx.x] = 0;
             }
         }
